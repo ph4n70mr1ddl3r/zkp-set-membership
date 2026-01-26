@@ -31,13 +31,12 @@ fn test_circuit_proof_generation() {
     let public_inputs = vec![leaf, root, nullifier];
 
     // Generate proof
-    let proof =
-        SetMembershipProver::generate_proof(&params, circuit.clone(), public_inputs.clone());
+    let mut prover = SetMembershipProver::new();
+    let proof = prover.generate_proof(&params, circuit.clone(), public_inputs.clone());
     assert!(proof.is_ok(), "Proof generation should succeed");
 
     // Verify proof
-    let verification_result =
-        SetMembershipProver::verify_proof(&params, circuit, &proof.unwrap(), public_inputs);
+    let verification_result = prover.verify_proof(&params, circuit, &proof.unwrap(), public_inputs);
     assert!(
         verification_result.is_ok(),
         "Proof verification should succeed"
@@ -67,15 +66,14 @@ fn test_circuit_with_zero_values() {
     ];
 
     // Generate and verify proof with zero values
-    let proof =
-        SetMembershipProver::generate_proof(&params, circuit.clone(), public_inputs.clone());
+    let mut prover = SetMembershipProver::new();
+    let proof = prover.generate_proof(&params, circuit.clone(), public_inputs.clone());
     assert!(
         proof.is_ok(),
         "Proof generation with zero values should succeed"
     );
 
-    let verification_result =
-        SetMembershipProver::verify_proof(&params, circuit, &proof.unwrap(), public_inputs);
+    let verification_result = prover.verify_proof(&params, circuit, &proof.unwrap(), public_inputs);
     assert!(
         verification_result.is_ok(),
         "Proof verification should not panic with zero values"
@@ -120,13 +118,14 @@ fn test_proof_with_invalid_public_inputs() {
 
     // Generate proof with original inputs
     let public_inputs_original = vec![leaf, root, nullifier];
-    let proof =
-        SetMembershipProver::generate_proof(&params, circuit.clone(), public_inputs_original)
-            .unwrap();
+    let mut prover = SetMembershipProver::new();
+    let proof = prover
+        .generate_proof(&params, circuit.clone(), public_inputs_original)
+        .unwrap();
 
     // Try to verify with different public inputs
     let invalid_inputs = vec![leaf, root, pasta_curves::pallas::Base::one()];
-    let result = SetMembershipProver::verify_proof(&params, circuit, &proof, invalid_inputs);
+    let result = prover.verify_proof(&params, circuit, &proof, invalid_inputs);
 
     // Should fail or produce an error
     assert!(result.is_err() || !result.unwrap());

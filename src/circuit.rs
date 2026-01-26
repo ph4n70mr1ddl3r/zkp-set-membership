@@ -26,12 +26,13 @@ use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner, Value},
     plonk::{
         create_proof, keygen_pk, keygen_vk, verify_proof, Advice, Circuit, Column,
-        ConstraintSystem, Error, Instance, SingleVerifier,
+        ConstraintSystem, Error, Instance, ProvingKey, SingleVerifier, VerifyingKey,
     },
     poly::commitment::Params,
     transcript::{Blake2bRead, Blake2bWrite},
 };
 use pasta_curves::{pallas, vesta};
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Copy)]
 pub struct SetMembershipConfig {
@@ -138,10 +139,46 @@ pub fn bytes_to_field(bytes: &[u8; 32]) -> pallas::Base {
     value
 }
 
-/// Prover utility for generating and verifying set membership proofs.
-pub struct SetMembershipProver;
+/// Prover utility for generating and verifying set membership proofs with cached keys.
+pub struct SetMembershipProver {
+    vk: Option<Arc<VerifyingKey<vesta::Affine>>>,
+    pk: Option<Arc<ProvingKey<vesta::Affine>>>,
+}
+
+impl Default for SetMembershipProver {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl SetMembershipProver {
+    /// Create a new prover with no cached keys.
+    pub fn new() -> Self {
+        Self { vk: None, pk: None }
+    }
+
+    /// Create a prover with pre-generated keys.
+    pub fn with_keys(
+        vk: Arc<VerifyingKey<vesta::Affine>>,
+        pk: Arc<ProvingKey<vesta::Affine>>,
+    ) -> Self {
+        Self {
+            vk: Some(vk),
+            pk: Some(pk),
+        }
+    }
+
+    /// Generate keys and cache them for future use.
+    pub fn generate_and_cache_keys(&mut self, params: &Params<vesta::Affine>) -> Result<(), Error> {
+        let circuit = SetMembershipCircuit::default();
+        let vk = keygen_vk(params, &circuit)?;
+        let pk = keygen_pk(params, vk.clone(), &circuit)?;
+
+        self.vk = Some(Arc::new(vk));
+        self.pk = Some(Arc::new(pk));
+        Ok(())
+    }
+
     /// Generates a zero-knowledge proof for set membership.
     ///
     /// # Arguments
@@ -152,14 +189,20 @@ impl SetMembershipProver {
     /// # Returns
     /// A serialized proof as bytes
     pub fn generate_proof(
+        &mut self,
         params: &Params<vesta::Affine>,
         circuit: SetMembershipCircuit,
         public_inputs: Vec<pallas::Base>,
     ) -> Result<Vec<u8>, Error> {
-        // TODO: CRITICAL: Key generation is expensive and should be cached
-        // Consider storing serialized vk and pk and loading them instead
-        let vk = keygen_vk(params, &circuit)?;
-        let pk = keygen_pk(params, vk, &circuit)?;
+        let pk = if let Some(pk) = &self.pk {
+            pk.clone()
+        } else {
+            let vk = keygen_vk(params, &circuit)?;
+            let pk = keygen_pk(params, vk, &circuit)?;
+            let pk_arc = Arc::new(pk);
+            self.pk = Some(pk_arc.clone());
+            pk_arc
+        };
 
         let mut transcript = Blake2bWrite::init(vec![]);
         let mut rng = rand::rngs::ThreadRng::default();
@@ -181,7 +224,7 @@ impl SetMembershipProver {
     ///
     /// # Arguments
     /// * `params` - The proving system parameters
-    /// * `circuit` - The circuit instance (used for verification key)
+    /// * `circuit` - The circuit instance (used for verification key if not cached)
     /// * `proof` - The serialized proof bytes
     /// * `public_inputs` - The public inputs to verify against
     ///
@@ -189,14 +232,20 @@ impl SetMembershipProver {
     /// `Ok(true)` if the proof is valid, `Ok(false)` if invalid,
     /// or an error if verification fails unexpectedly
     pub fn verify_proof(
+        &mut self,
         params: &Params<vesta::Affine>,
         circuit: SetMembershipCircuit,
         proof: &[u8],
         public_inputs: Vec<pallas::Base>,
     ) -> Result<bool, Error> {
-        // TODO: CRITICAL: Should use a fixed verification key instead of regenerating
-        // Regenerating VK defeats the purpose of trusted setup verification keys
-        let vk = keygen_vk(params, &circuit)?;
+        let vk = if let Some(vk) = &self.vk {
+            vk.clone()
+        } else {
+            let vk = keygen_vk(params, &circuit)?;
+            let vk_arc = Arc::new(vk);
+            self.vk = Some(vk_arc.clone());
+            vk_arc
+        };
 
         let strategy = SingleVerifier::new(params);
         let mut transcript = Blake2bRead::init(proof);

@@ -68,7 +68,8 @@ impl MerkleTree {
         let mut level = leaves.to_vec();
 
         while level.len() > 1 {
-            let mut new_level = Vec::new();
+            let new_level_capacity = level.len().div_ceil(2);
+            let mut new_level = Vec::with_capacity(new_level_capacity);
             for i in (0..level.len()).step_by(2) {
                 if i + 1 < level.len() {
                     let hash = hash_pair(&level[i], &level[i + 1]);

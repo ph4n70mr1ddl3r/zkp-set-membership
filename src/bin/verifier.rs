@@ -153,8 +153,9 @@ fn main() -> Result<()> {
     // Public inputs for verification
     let public_inputs = vec![leaf_base, root_base, nullifier_base];
 
+    let mut prover = SetMembershipProver::new();
     let verification_result =
-        SetMembershipProver::verify_proof(&params, circuit, &proof.zkp_proof, public_inputs);
+        prover.verify_proof(&params, circuit, &proof.zkp_proof, public_inputs);
 
     match verification_result {
         Ok(_) => {

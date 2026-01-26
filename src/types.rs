@@ -65,11 +65,14 @@ impl ZKProofOutput {
             .map(|d| d.as_secs())
             .unwrap_or(0);
 
-        if self.timestamp > current_timestamp {
+        const TIMESTAMP_TOLERANCE_SECS: u64 = 300;
+
+        if self.timestamp > current_timestamp + TIMESTAMP_TOLERANCE_SECS {
             return Err(anyhow::anyhow!(
-                "Timestamp is in the future: {} (current: {})",
+                "Timestamp is too far in the future: {} (current: {}, tolerance: {}s)",
                 self.timestamp,
-                current_timestamp
+                current_timestamp,
+                TIMESTAMP_TOLERANCE_SECS
             ));
         }
 

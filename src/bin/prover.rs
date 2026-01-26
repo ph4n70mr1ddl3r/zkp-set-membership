@@ -53,6 +53,10 @@ fn address_to_bytes(address: &str) -> Result<[u8; 32]> {
     Ok(full_bytes)
 }
 
+fn normalize_address(address: &str) -> Result<String> {
+    validate_and_strip_hex(address, ADDRESS_HEX_LENGTH).map(|s| s.to_lowercase())
+}
+
 fn validate_private_key(private_key: &str) -> Result<()> {
     validate_and_strip_hex(private_key, PRIVATE_KEY_HEX_LENGTH)?;
     Ok(())
@@ -107,25 +111,32 @@ fn main() -> Result<()> {
 
     let prover_normalized = validate_and_strip_hex(&prover_address_str, 40)?.to_lowercase();
 
+    let normalized_addresses: Result<Vec<String>> = addresses
+        .iter()
+        .enumerate()
+        .map(|(i, addr)| {
+            normalize_address(addr).with_context(|| {
+                format!("Failed to validate address at line {}: '{}'", i + 1, addr)
+            })
+        })
+        .collect();
+
+    let normalized_addresses = normalized_addresses.context("Failed to normalize addresses")?;
+
     let mut leaf_hashes = Vec::with_capacity(addresses.len());
     let mut leaf_index = None;
 
-    for (i, address) in addresses.iter().enumerate() {
+    for (i, (address, normalized)) in addresses
+        .iter()
+        .zip(normalized_addresses.iter())
+        .enumerate()
+    {
         let address_bytes = address_to_bytes(address).with_context(|| {
             format!("Failed to process address at line {}: '{}'", i + 1, address)
         })?;
         leaf_hashes.push(address_bytes);
 
-        let addr_normalized = validate_and_strip_hex(address, 40)
-            .with_context(|| {
-                format!(
-                    "Failed to validate address at line {}: '{}'",
-                    i + 1,
-                    address
-                )
-            })?
-            .to_lowercase();
-        if addr_normalized == prover_normalized {
+        if normalized == &prover_normalized {
             if leaf_index.is_some() {
                 return Err(anyhow::anyhow!(
                     "Duplicate prover address found in accounts file at line {}",
@@ -180,7 +191,13 @@ fn main() -> Result<()> {
     println!("Generating ZK proof (this may take a while)...");
     let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
 
-    let zkp_proof = SetMembershipProver::generate_proof(&params, circuit, public_inputs)
+    let mut prover = SetMembershipProver::new();
+    prover
+        .generate_and_cache_keys(&params)
+        .context("Failed to generate keys")?;
+
+    let zkp_proof = prover
+        .generate_proof(&params, circuit, public_inputs)
         .context("Failed to create proof")?;
 
     println!("ZK proof generated, size: {} bytes", zkp_proof.len());
