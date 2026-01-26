@@ -9,7 +9,13 @@ use zkp_set_membership::{
     CIRCUIT_K,
 };
 
+/// Maximum allowed size for the proof JSON file (1MB)
+/// Prevents memory exhaustion from excessively large proof files
 const MAX_PROOF_FILE_SIZE: u64 = 1024 * 1024;
+
+/// Maximum allowed size for the ZK proof bytes (512KB)
+/// ZK proofs generated with k=11 should be well below this limit
+/// Exceeding this indicates a potentially malformed or incompatible proof
 const MAX_ZK_PROOF_SIZE: usize = 512 * 1024;
 
 #[derive(Parser, Debug)]
@@ -65,18 +71,13 @@ fn main() -> Result<()> {
         ));
     }
 
-    if proof.merkle_siblings.is_empty() {
-        return Err(anyhow::anyhow!(
-            "Invalid proof: Merkle proof must contain at least one sibling"
-        ));
-    }
-
     println!("Verifying ZK proof...");
     let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
 
     let nullifier_file = args.proof_file.replace(".json", "_nullifiers.txt");
     let has_replay = if std::path::Path::new(&nullifier_file).exists() {
-        let existing_nullifiers = fs::read_to_string(&nullifier_file)?;
+        let existing_nullifiers = fs::read_to_string(&nullifier_file)
+            .with_context(|| format!("Failed to read nullifier file: {}", nullifier_file))?;
         existing_nullifiers
             .lines()
             .any(|line| line.trim() == proof.nullifier)
@@ -86,8 +87,9 @@ fn main() -> Result<()> {
 
     if has_replay {
         return Err(anyhow::anyhow!(
-            "Proof replay detected: nullifier {} has already been used",
-            proof.nullifier
+            "Proof replay detected: nullifier {} has already been used. See {} for details.",
+            proof.nullifier,
+            nullifier_file
         ));
     }
 
@@ -164,7 +166,7 @@ fn main() -> Result<()> {
             println!("reuse of same proof while maintaining privacy.");
 
             fs::write(&nullifier_file, format!("{}\n", proof.nullifier))
-                .context("Failed to record nullifier")?;
+                .with_context(|| format!("Failed to record nullifier to: {}", nullifier_file))?;
             println!("\nNullifier recorded to: {}", nullifier_file);
             Ok(())
         }

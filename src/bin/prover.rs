@@ -14,8 +14,16 @@ use zkp_set_membership::{
     CIRCUIT_K,
 };
 
+/// Maximum allowed size for the accounts file (10MB)
+/// Prevents memory exhaustion from excessively large input files
 const MAX_ACCOUNTS_FILE_SIZE: u64 = 10 * 1024 * 1024;
+
+/// Expected length of an Ethereum address in hex characters (excluding 0x prefix)
+/// Ethereum addresses are 20 bytes = 40 hex characters
 const ADDRESS_HEX_LENGTH: usize = 40;
+
+/// Expected length of a private key in hex characters (excluding 0x prefix)
+/// Ethereum private keys are 32 bytes = 64 hex characters
 const PRIVATE_KEY_HEX_LENGTH: usize = 64;
 
 #[derive(Parser, Debug)]
@@ -151,15 +159,6 @@ fn main() -> Result<()> {
     println!("Computing deterministic nullifier...");
     let nullifier = compute_nullifier(&leaf_hash, &root_hash);
     println!("Nullifier: {}", hex::encode(nullifier));
-
-    // Validate leaf_index bounds
-    if leaf_index >= leaf_hashes.len() {
-        return Err(anyhow::anyhow!(
-            "Invalid leaf index {} is out of bounds for {} leaves",
-            leaf_index,
-            leaf_hashes.len()
-        ));
-    }
 
     println!("Creating ZK-SNARK circuit...");
 

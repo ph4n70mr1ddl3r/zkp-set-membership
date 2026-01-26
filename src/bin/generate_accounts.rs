@@ -7,7 +7,7 @@ fn generate_random_ethereum_addresses(count: usize) -> Vec<String> {
     let mut addresses = Vec::new();
     for _ in 0..count {
         let wallet = LocalWallet::new(&mut rand::thread_rng());
-        addresses.push(format!("{:x}", wallet.address()));
+        addresses.push(format!("0x{:x}", wallet.address()));
     }
     addresses
 }
@@ -58,4 +58,74 @@ fn main() -> anyhow::Result<()> {
     println!("  ✓ No duplicate addresses found");
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_addresses_valid() {
+        let addresses = vec![
+            "0x742d35Cc6634C0532925a3b844Bc454e4438f44e".to_string(),
+            "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed".to_string(),
+        ];
+        assert!(validate_addresses(&addresses));
+    }
+
+    #[test]
+    fn test_validate_addresses_invalid_length() {
+        let addresses = vec!["0x123456".to_string()];
+        assert!(!validate_addresses(&addresses));
+    }
+
+    #[test]
+    fn test_validate_addresses_invalid_prefix() {
+        let addresses = vec!["1234567890123456789012345678901234567890".to_string()];
+        assert!(!validate_addresses(&addresses));
+    }
+
+    #[test]
+    fn test_validate_addresses_invalid_hex() {
+        let addresses = vec!["0x123456789012345678901234567890123456789z".to_string()];
+        assert!(!validate_addresses(&addresses));
+    }
+
+    #[test]
+    fn test_check_duplicates_no_duplicates() {
+        let addresses = vec![
+            "0x742d35Cc6634C0532925a3b844Bc454e4438f44e".to_string(),
+            "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed".to_string(),
+        ];
+        assert!(check_duplicates(&addresses));
+    }
+
+    #[test]
+    fn test_check_duplicates_with_duplicates() {
+        let addresses = vec![
+            "0x742d35Cc6634C0532925a3b844Bc454e4438f44e".to_string(),
+            "0x742d35Cc6634C0532925a3b844Bc454e4438f44e".to_string(),
+        ];
+        assert!(!check_duplicates(&addresses));
+    }
+
+    #[test]
+    fn test_generate_random_ethereum_addresses() {
+        let count = 10;
+        let addresses = generate_random_ethereum_addresses(count);
+
+        assert_eq!(addresses.len(), count);
+        assert!(validate_addresses(&addresses));
+        assert!(check_duplicates(&addresses));
+    }
+
+    #[test]
+    fn test_generate_random_ethereum_addresses_unique() {
+        let count = 100;
+        let addresses = generate_random_ethereum_addresses(count);
+
+        assert_eq!(addresses.len(), count);
+        let unique_count: std::collections::HashSet<_> = addresses.iter().collect();
+        assert_eq!(unique_count.len(), count);
+    }
 }
