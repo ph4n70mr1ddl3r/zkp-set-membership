@@ -9,14 +9,30 @@ use zkp_set_membership::{
     CIRCUIT_K,
 };
 
-/// Maximum allowed size for the proof JSON file (1MB)
+/// Default maximum allowed size for the proof JSON file (1MB)
 /// Prevents memory exhaustion from excessively large proof files
-const MAX_PROOF_FILE_SIZE: u64 = 1024 * 1024;
+/// Can be overridden via ZKP_MAX_PROOF_FILE_SIZE environment variable
+const DEFAULT_MAX_PROOF_FILE_SIZE: u64 = 1024 * 1024;
 
-/// Maximum allowed size for the ZK proof bytes (512KB)
+/// Default maximum allowed size for the ZK proof bytes (512KB)
 /// ZK proofs generated with k=11 should be well below this limit
 /// Exceeding this indicates a potentially malformed or incompatible proof
-const MAX_ZK_PROOF_SIZE: usize = 512 * 1024;
+/// Can be overridden via ZKP_MAX_ZK_PROOF_SIZE environment variable
+const DEFAULT_MAX_ZK_PROOF_SIZE: usize = 512 * 1024;
+
+fn get_max_proof_file_size() -> u64 {
+    std::env::var("ZKP_MAX_PROOF_FILE_SIZE")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(DEFAULT_MAX_PROOF_FILE_SIZE)
+}
+
+fn get_max_zk_proof_size() -> usize {
+    std::env::var("ZKP_MAX_ZK_PROOF_SIZE")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(DEFAULT_MAX_ZK_PROOF_SIZE)
+}
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -39,11 +55,12 @@ fn main() -> Result<()> {
 
     let metadata = fs::metadata(&args.proof_file).context("Failed to read proof file metadata")?;
 
-    if metadata.len() > MAX_PROOF_FILE_SIZE {
+    let max_proof_file_size = get_max_proof_file_size();
+    if metadata.len() > max_proof_file_size {
         return Err(anyhow::anyhow!(
             "Proof file too large: {} bytes (max {} bytes). This may indicate a corrupted or invalid proof file.",
             metadata.len(),
-            MAX_PROOF_FILE_SIZE
+            max_proof_file_size
         ));
     }
 
@@ -63,11 +80,11 @@ fn main() -> Result<()> {
     println!("  Timestamp: {}", proof.timestamp);
     println!("  ZK Proof Size: {} bytes", proof.zkp_proof.len());
 
-    if proof.zkp_proof.len() > MAX_ZK_PROOF_SIZE {
+    if proof.zkp_proof.len() > get_max_zk_proof_size() {
         return Err(anyhow::anyhow!(
             "ZK proof size exceeds limit: {} bytes (max {} bytes). The proof may be malformed or generated with incompatible parameters.",
             proof.zkp_proof.len(),
-            MAX_ZK_PROOF_SIZE
+            get_max_zk_proof_size()
         ));
     }
 

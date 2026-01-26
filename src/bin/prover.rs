@@ -14,9 +14,17 @@ use zkp_set_membership::{
     CIRCUIT_K,
 };
 
-/// Maximum allowed size for the accounts file (10MB)
+/// Default maximum allowed size for the accounts file (10MB)
 /// Prevents memory exhaustion from excessively large input files
-const MAX_ACCOUNTS_FILE_SIZE: u64 = 10 * 1024 * 1024;
+/// Can be overridden via ZKP_MAX_ACCOUNTS_FILE_SIZE environment variable
+const DEFAULT_MAX_ACCOUNTS_FILE_SIZE: u64 = 10 * 1024 * 1024;
+
+fn get_max_accounts_file_size() -> u64 {
+    std::env::var("ZKP_MAX_ACCOUNTS_FILE_SIZE")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(DEFAULT_MAX_ACCOUNTS_FILE_SIZE)
+}
 
 /// Expected length of an Ethereum address in hex characters (excluding 0x prefix)
 /// Ethereum addresses are 20 bytes = 40 hex characters
@@ -39,9 +47,8 @@ struct Args {
     output: PathBuf,
 }
 
-fn address_to_bytes(address: &str) -> Result<[u8; 32]> {
-    let normalized = normalize_address(address)?;
-    let bytes = hex::decode(&normalized).context("Failed to decode address from hex")?;
+fn address_to_bytes_normalized(normalized_address: &str) -> Result<[u8; 32]> {
+    let bytes = hex::decode(normalized_address).context("Failed to decode address from hex")?;
 
     if bytes.len() != 20 {
         return Err(anyhow::anyhow!("Address bytes length mismatch"));
@@ -84,11 +91,12 @@ fn main() -> Result<()> {
         fs::read_to_string(&args.accounts_file).context("Failed to read accounts file")?;
 
     let content_size = accounts_content.len() as u64;
-    if content_size > MAX_ACCOUNTS_FILE_SIZE {
+    let max_accounts_size = get_max_accounts_file_size();
+    if content_size > max_accounts_size {
         return Err(anyhow::anyhow!(
             "Accounts file too large: {} bytes (max {} bytes). Please reduce the number of accounts or split into multiple files.",
             content_size,
-            MAX_ACCOUNTS_FILE_SIZE
+            max_accounts_size
         ));
     }
 
@@ -135,7 +143,7 @@ fn main() -> Result<()> {
         .zip(normalized_addresses.iter())
         .enumerate()
     {
-        let address_bytes = address_to_bytes(address).with_context(|| {
+        let address_bytes = address_to_bytes_normalized(normalized).with_context(|| {
             format!("Failed to process address at line {}: '{}'", i + 1, address)
         })?;
         leaf_hashes.push(address_bytes);
@@ -245,6 +253,16 @@ fn main() -> Result<()> {
 
     let json_output =
         serde_json::to_string_pretty(&output).context("Failed to serialize proof to JSON")?;
+
+    let metadata = fs::metadata(parent_dir).context("Failed to read directory metadata")?;
+    let perms = metadata.permissions();
+
+    if perms.readonly() {
+        return Err(anyhow::anyhow!(
+            "Output directory is not writable: {}",
+            parent_dir.display()
+        ));
+    }
 
     if args.output.exists() {
         eprintln!(
