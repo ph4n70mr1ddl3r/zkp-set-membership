@@ -48,8 +48,20 @@ pub struct SetMembershipCircuit {
     pub root: pallas::Base,
     pub nullifier: pallas::Base,
     /// Merkle path siblings for inclusion proof.
-    /// Currently stored but not enforced in circuit constraints.
-    /// TODO: Implement circuit constraints to verify Merkle path using these siblings.
+    ///
+    /// This field stores the sibling hashes along the Merkle tree path from the leaf to the root.
+    /// These siblings are used to verify that the leaf is included in the tree by computing
+    /// the root hash through the path.
+    ///
+    /// **Security Note**: Currently this field is stored but not enforced in circuit constraints.
+    /// The circuit does not verify that leaf + siblings produces the root, which means proofs
+    /// can be generated for invalid values. This is a critical security limitation.
+    ///
+    /// TODO: Implement circuit constraints to verify Merkle path using these siblings:
+    /// 1. Add Poseidon hash chip for efficient in-circuit hashing
+    /// 2. Implement Merkle path verification using siblings
+    /// 3. Add constraint: H(leaf || siblings[0]) = intermediate, H(intermediate || siblings[1]) = ...
+    /// 4. Final constraint: final_hash == root
     pub siblings: Vec<pallas::Base>,
     pub leaf_index: usize,
 }
@@ -63,10 +75,29 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
     }
 
     fn configure(meta: &mut ConstraintSystem<pallas::Base>) -> Self::Config {
-        // TODO: CRITICAL: Add proper cryptographic constraints here
-        // 1. Merkle path verification using Poseidon hash
-        // 2. Constraint that leaf + siblings produces root
-        // 3. Nullifier verification: H(leaf || root) == nullifier
+        // CRITICAL: No cryptographic constraints are currently implemented.
+        // This circuit only assigns values to cells without enforcing relationships.
+        //
+        // SECURITY WARNING: This means proofs can be generated for ANY values,
+        // not just those where leaf is actually in the tree at the root.
+        //
+        // Required constraints for production use:
+        // 1. Merkle path verification using Poseidon hash:
+        //    - Start with leaf
+        //    - For each sibling in siblings: current = H(current || sibling) (or H(sibling || current) depending on path)
+        //    - Final constraint: current == root
+        //
+        // 2. Nullifier derivation constraint:
+        //    - Compute H(leaf || root) in-circuit
+        //    - Constrain: computed_hash == nullifier
+        //
+        // 3. Instance column constraints:
+        //    - Expose leaf, root, nullifier as public inputs
+        //    - Constrain advice values to match instance values
+        //
+        // Recommended approach:
+        // - Use halo2-gadgets or implement a Poseidon chip
+        // - See halo2-pasta or halo2-examples for reference implementations
         let leaf_cell = meta.advice_column();
         let root_cell = meta.advice_column();
         let nullifier_cell = meta.advice_column();

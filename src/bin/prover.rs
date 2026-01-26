@@ -40,9 +40,8 @@ struct Args {
 }
 
 fn address_to_bytes(address: &str) -> Result<[u8; 32]> {
-    let address_hex = validate_and_strip_hex(address, ADDRESS_HEX_LENGTH)?;
-
-    let bytes = hex::decode(address_hex).context("Failed to decode address from hex")?;
+    let normalized = normalize_address(address)?;
+    let bytes = hex::decode(&normalized).context("Failed to decode address from hex")?;
 
     if bytes.len() != 20 {
         return Err(anyhow::anyhow!("Address bytes length mismatch"));
@@ -55,6 +54,20 @@ fn address_to_bytes(address: &str) -> Result<[u8; 32]> {
 
 fn normalize_address(address: &str) -> Result<String> {
     validate_and_strip_hex(address, ADDRESS_HEX_LENGTH).map(|s| s.to_lowercase())
+}
+
+/// Validates and normalizes a batch of addresses in one pass.
+/// More efficient than processing individually.
+fn normalize_addresses_batch(addresses: &[String]) -> Result<Vec<String>> {
+    addresses
+        .iter()
+        .enumerate()
+        .map(|(i, addr)| {
+            normalize_address(addr).with_context(|| {
+                format!("Failed to validate address at line {}: '{}'", i + 1, addr)
+            })
+        })
+        .collect()
 }
 
 fn validate_private_key(private_key: &str) -> Result<()> {
@@ -109,19 +122,10 @@ fn main() -> Result<()> {
     let prover_address_str = format!("{:x}", prover_address);
     println!("Prover address: 0x{}", prover_address_str);
 
-    let prover_normalized = validate_and_strip_hex(&prover_address_str, 40)?.to_lowercase();
+    let normalized_addresses =
+        normalize_addresses_batch(&addresses).context("Failed to normalize addresses")?;
 
-    let normalized_addresses: Result<Vec<String>> = addresses
-        .iter()
-        .enumerate()
-        .map(|(i, addr)| {
-            normalize_address(addr).with_context(|| {
-                format!("Failed to validate address at line {}: '{}'", i + 1, addr)
-            })
-        })
-        .collect();
-
-    let normalized_addresses = normalized_addresses.context("Failed to normalize addresses")?;
+    let prover_normalized = normalize_address(&prover_address_str)?;
 
     let mut leaf_hashes = Vec::with_capacity(addresses.len());
     let mut leaf_index = None;
@@ -226,8 +230,28 @@ fn main() -> Result<()> {
     };
 
     println!("Writing proof to: {:?}", args.output);
+
+    let parent_dir = args
+        .output
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("Output file has no parent directory"))?;
+
+    if !parent_dir.exists() {
+        return Err(anyhow::anyhow!(
+            "Output directory does not exist: {}",
+            parent_dir.display()
+        ));
+    }
+
     let json_output =
         serde_json::to_string_pretty(&output).context("Failed to serialize proof to JSON")?;
+
+    if args.output.exists() {
+        eprintln!(
+            "Warning: Overwriting existing file: {}",
+            args.output.display()
+        );
+    }
 
     fs::write(&args.output, json_output).context("Failed to write proof file")?;
 
