@@ -7,7 +7,7 @@ fn generate_random_ethereum_addresses(count: usize) -> Vec<String> {
     let mut addresses = Vec::new();
     for _ in 0..count {
         let wallet = LocalWallet::new(&mut rand::thread_rng());
-        addresses.push(format!("{:?}", wallet.address()));
+        addresses.push(format!("{:x}", wallet.address()));
     }
     addresses
 }

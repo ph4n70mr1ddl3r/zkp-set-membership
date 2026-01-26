@@ -42,7 +42,6 @@ pub struct SetMembershipConfig {
 }
 
 #[derive(Debug, Default, Clone)]
-#[allow(dead_code)]
 pub struct SetMembershipCircuit {
     pub leaf: pallas::Base,
     pub root: pallas::Base,

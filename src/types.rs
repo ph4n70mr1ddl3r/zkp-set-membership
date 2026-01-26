@@ -63,10 +63,9 @@ impl ZKProofOutput {
             ));
         }
 
-        let leaf_hex = self
-            .verification_key
-            .get("leaf")
-            .ok_or_else(|| anyhow::anyhow!("Verification key missing 'leaf' field"))?;
+        let leaf_hex = self.verification_key.get("leaf").ok_or_else(|| {
+            anyhow::anyhow!("Verification key missing required 'leaf' field for validation")
+        })?;
 
         let leaf_bytes =
             hex::decode(leaf_hex).map_err(|e| anyhow::anyhow!("Invalid leaf hex: {}", e))?;

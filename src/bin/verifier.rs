@@ -75,17 +75,20 @@ fn main() -> Result<()> {
     let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
 
     let nullifier_file = args.proof_file.replace(".json", "_nullifiers.txt");
-    if std::path::Path::new(&nullifier_file).exists() {
+    let has_replay = if std::path::Path::new(&nullifier_file).exists() {
         let existing_nullifiers = fs::read_to_string(&nullifier_file)?;
-        if existing_nullifiers
+        existing_nullifiers
             .lines()
             .any(|line| line.trim() == proof.nullifier)
-        {
-            return Err(anyhow::anyhow!(
-                "Proof replay detected: nullifier {} has already been used",
-                proof.nullifier
-            ));
-        }
+    } else {
+        false
+    };
+
+    if has_replay {
+        return Err(anyhow::anyhow!(
+            "Proof replay detected: nullifier {} has already been used",
+            proof.nullifier
+        ));
     }
 
     let leaf_hex = proof.verification_key["leaf"].clone();

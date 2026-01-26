@@ -136,6 +136,10 @@ impl MerkleTree {
     ///
     /// # Returns
     /// `true` if the proof is valid, `false` otherwise
+    ///
+    /// # Note
+    /// This only verifies the cryptographic correctness of the proof.
+    /// It does not verify that the leaf_index is valid for this tree.
     pub fn verify_proof(&self, proof: &MerkleProof) -> bool {
         if proof.root != self.root {
             return false;
