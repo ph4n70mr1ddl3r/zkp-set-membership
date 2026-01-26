@@ -1,3 +1,4 @@
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -10,6 +11,24 @@ pub struct ZKProofOutput {
     pub leaf_index: usize,
     pub timestamp: u64,
     pub merkle_siblings: Vec<String>,
+}
+
+impl ZKProofOutput {
+    pub fn validate(&self) -> Result<()> {
+        if self.merkle_root.is_empty() {
+            return Err(anyhow::anyhow!("Merkle root cannot be empty"));
+        }
+        if self.nullifier.is_empty() {
+            return Err(anyhow::anyhow!("Nullifier cannot be empty"));
+        }
+        if self.zkp_proof.is_empty() {
+            return Err(anyhow::anyhow!("ZK proof cannot be empty"));
+        }
+        if self.merkle_siblings.is_empty() {
+            return Err(anyhow::anyhow!("Merkle siblings cannot be empty"));
+        }
+        Ok(())
+    }
 }
 
 /// Represents an Ethereum account with its address.

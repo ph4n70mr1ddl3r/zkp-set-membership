@@ -9,11 +9,22 @@ use zkp_set_membership::{
     CIRCUIT_K,
 };
 
+const MAX_PROOF_FILE_SIZE: u64 = 10 * 1024 * 1024; // 10MB
+const MAX_ZK_PROOF_SIZE: usize = 1024 * 1024; // 1MB
+const HASH_SIZE: usize = 32;
+
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
     #[arg(short, long)]
     proof_file: String,
+}
+
+fn bytes_to_fixed_array(bytes: &[u8], name: &str) -> Result<[u8; HASH_SIZE]> {
+    let len = bytes.len();
+    bytes
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("{} must be {} bytes, got {} bytes", name, HASH_SIZE, len))
 }
 
 fn main() -> Result<()> {
@@ -23,12 +34,11 @@ fn main() -> Result<()> {
 
     let metadata = fs::metadata(&args.proof_file).context("Failed to read proof file metadata")?;
 
-    const MAX_PROOF_SIZE: u64 = 10 * 1024 * 1024; // 10MB
-    if metadata.len() > MAX_PROOF_SIZE {
+    if metadata.len() > MAX_PROOF_FILE_SIZE {
         return Err(anyhow::anyhow!(
             "Proof file too large: {} bytes (max {} bytes)",
             metadata.len(),
-            MAX_PROOF_SIZE
+            MAX_PROOF_FILE_SIZE
         ));
     }
 
@@ -39,6 +49,8 @@ fn main() -> Result<()> {
     let proof: ZKProofOutput =
         serde_json::from_str(&proof_content).context("Failed to parse proof JSON")?;
 
+    proof.validate().context("Proof validation failed")?;
+
     println!("Proof details:");
     println!("  Merkle Root: {}", proof.merkle_root);
     println!("  Nullifier: {}", proof.nullifier);
@@ -46,7 +58,6 @@ fn main() -> Result<()> {
     println!("  Timestamp: {}", proof.timestamp);
     println!("  ZK Proof Size: {} bytes", proof.zkp_proof.len());
 
-    const MAX_ZK_PROOF_SIZE: usize = 1024 * 1024; // 1MB
     if proof.zkp_proof.len() > MAX_ZK_PROOF_SIZE {
         return Err(anyhow::anyhow!(
             "ZK proof size exceeds limit: {} bytes (max {} bytes)",
@@ -77,18 +88,9 @@ fn main() -> Result<()> {
         .context(format!("Failed to decode nullifier '{}'", nullifier_hex))?;
 
     // Ensure we have 32-byte arrays
-    let leaf_len = leaf_bytes.len();
-    let leaf_array: [u8; 32] = leaf_bytes
-        .try_into()
-        .map_err(|_| anyhow::anyhow!("Leaf must be 32 bytes, got {} bytes", leaf_len))?;
-    let root_len = root_bytes.len();
-    let root_array: [u8; 32] = root_bytes
-        .try_into()
-        .map_err(|_| anyhow::anyhow!("Root must be 32 bytes, got {} bytes", root_len))?;
-    let nullifier_len = nullifier_bytes.len();
-    let nullifier_array: [u8; 32] = nullifier_bytes
-        .try_into()
-        .map_err(|_| anyhow::anyhow!("Nullifier must be 32 bytes, got {} bytes", nullifier_len))?;
+    let leaf_array = bytes_to_fixed_array(&leaf_bytes, "Leaf")?;
+    let root_array = bytes_to_fixed_array(&root_bytes, "Root")?;
+    let nullifier_array = bytes_to_fixed_array(&nullifier_bytes, "Nullifier")?;
 
     // Convert to field elements
     let leaf_base = bytes_to_field(&leaf_array);
@@ -101,14 +103,7 @@ fn main() -> Result<()> {
         .map(|s| {
             let bytes = hex::decode(s)
                 .context(format!("Failed to decode Merkle sibling '{}' from hex", s))?;
-            let bytes_len = bytes.len();
-            let array: [u8; 32] = bytes.try_into().map_err(|_| {
-                anyhow::anyhow!(
-                    "Merkle sibling '{}' must be 32 bytes, got {} bytes",
-                    s,
-                    bytes_len
-                )
-            })?;
+            let array = bytes_to_fixed_array(&bytes, "Merkle sibling")?;
             Ok(bytes_to_field(&array))
         })
         .collect::<Result<Vec<_>>>()?;

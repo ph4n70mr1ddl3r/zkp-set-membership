@@ -16,6 +16,9 @@ use zkp_set_membership::{
     CIRCUIT_K,
 };
 
+const MAX_ACCOUNTS_FILE_SIZE: u64 = 100 * 1024 * 1024; // 100MB
+const ADDRESS_HEX_LENGTH: usize = 40;
+
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
@@ -30,7 +33,7 @@ struct Args {
 }
 
 fn address_to_bytes(address: &str) -> Result<[u8; 32]> {
-    let address_hex = validate_and_strip_hex(address, 40)?;
+    let address_hex = validate_and_strip_hex(address, ADDRESS_HEX_LENGTH)?;
 
     let bytes = hex::decode(address_hex).context("Failed to decode address from hex")?;
 
@@ -48,9 +51,9 @@ fn validate_private_key(private_key: &str) -> Result<()> {
     Ok(())
 }
 
-fn compute_nullifier(address: &str, merkle_root: &[u8; 32]) -> [u8; 32] {
+fn compute_nullifier(address_bytes: &[u8; 32], merkle_root: &[u8; 32]) -> [u8; 32] {
     let mut hasher = Sha3_256::new();
-    hasher.update(address.as_bytes());
+    hasher.update(address_bytes);
     hasher.update(merkle_root);
     hasher.finalize().into()
 }
@@ -63,12 +66,11 @@ fn main() -> Result<()> {
     let metadata =
         fs::metadata(&args.accounts_file).context("Failed to read accounts file metadata")?;
 
-    const MAX_FILE_SIZE: u64 = 100 * 1024 * 1024; // 100MB
-    if metadata.len() > MAX_FILE_SIZE {
+    if metadata.len() > MAX_ACCOUNTS_FILE_SIZE {
         return Err(anyhow::anyhow!(
             "Accounts file too large: {} bytes (max {} bytes)",
             metadata.len(),
-            MAX_FILE_SIZE
+            MAX_ACCOUNTS_FILE_SIZE
         ));
     }
 
@@ -102,8 +104,8 @@ fn main() -> Result<()> {
         .parse()
         .context("Failed to parse private key")?;
     let prover_address = wallet.address();
-    let prover_address_str = format!("{:?}", prover_address);
-    println!("Prover address: {}", prover_address_str);
+    let prover_address_str = format!("{:x}", prover_address);
+    println!("Prover address: 0x{}", prover_address_str);
 
     let mut leaf_hashes = Vec::new();
     let mut leaf_index = None;
@@ -112,11 +114,11 @@ fn main() -> Result<()> {
         let address_bytes = address_to_bytes(address)?;
         leaf_hashes.push(address_bytes);
 
-        // Exact comparison after normalizing both addresses
-        let addr_normalized = address.trim().to_lowercase().replace("0x", "");
-        let prover_normalized = prover_address_str.to_lowercase().replace("0x", "");
+        // Normalize both addresses for comparison
+        let addr_normalized = validate_and_strip_hex(address, 40)?;
+        let prover_normalized = validate_and_strip_hex(&format!("0x{}", prover_address_str), 40)?;
 
-        if addr_normalized == prover_normalized {
+        if addr_normalized.to_lowercase() == prover_normalized.to_lowercase() {
             leaf_index = Some(i);
             println!("Found prover address at index {}", i);
         }
@@ -141,7 +143,7 @@ fn main() -> Result<()> {
     let root_hash = merkle_proof.root;
 
     println!("Computing deterministic nullifier...");
-    let nullifier = compute_nullifier(&prover_address_str, &root_hash);
+    let nullifier = compute_nullifier(&leaf_hash, &root_hash);
     println!("Nullifier: {}", hex::encode(nullifier));
 
     println!("Creating ZK-SNARK circuit...");
