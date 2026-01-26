@@ -3,9 +3,19 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Sha3_256};
-use std::collections::HashMap;
 
 pub const HASH_SIZE: usize = 32;
+
+/// Verification key data for ZK proof verification.
+///
+/// Contains the cryptographic values needed to verify the proof,
+/// including the leaf, root, and nullifier hashes.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VerificationKey {
+    pub leaf: String,
+    pub root: String,
+    pub nullifier: String,
+}
 
 /// Output structure for zero-knowledge proofs.
 ///
@@ -16,7 +26,7 @@ pub struct ZKProofOutput {
     pub merkle_root: String,
     pub nullifier: String,
     pub zkp_proof: Vec<u8>,
-    pub verification_key: HashMap<String, String>,
+    pub verification_key: VerificationKey,
     pub leaf_index: usize,
     pub timestamp: u64,
     pub merkle_siblings: Vec<String>,
@@ -63,12 +73,10 @@ impl ZKProofOutput {
             ));
         }
 
-        let leaf_hex = self.verification_key.get("leaf").ok_or_else(|| {
-            anyhow::anyhow!("Verification key missing required 'leaf' field for validation")
-        })?;
+        let leaf_hex = &self.verification_key.leaf;
 
-        let leaf_bytes =
-            hex::decode(leaf_hex).map_err(|e| anyhow::anyhow!("Invalid leaf hex: {}", e))?;
+        let leaf_bytes = hex::decode(leaf_hex)
+            .map_err(|e| anyhow::anyhow!("Invalid leaf hex '{}': {}", leaf_hex, e))?;
 
         if leaf_bytes.len() != HASH_SIZE {
             return Err(anyhow::anyhow!("Leaf must be {} bytes", HASH_SIZE));

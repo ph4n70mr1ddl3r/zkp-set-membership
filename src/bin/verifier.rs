@@ -9,8 +9,8 @@ use zkp_set_membership::{
     CIRCUIT_K,
 };
 
-const MAX_PROOF_FILE_SIZE: u64 = 1024 * 1024; // 1MB
-const MAX_ZK_PROOF_SIZE: usize = 512 * 1024; // 512KB
+const MAX_PROOF_FILE_SIZE: u64 = 1024 * 1024;
+const MAX_ZK_PROOF_SIZE: usize = 512 * 1024;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -91,7 +91,7 @@ fn main() -> Result<()> {
         ));
     }
 
-    let leaf_hex = proof.verification_key["leaf"].clone();
+    let leaf_hex = proof.verification_key.leaf.clone();
     let root_hex = proof.merkle_root.clone();
     let nullifier_hex = proof.nullifier.clone();
 
@@ -123,11 +123,28 @@ fn main() -> Result<()> {
     let root_base = bytes_to_field(&root_array);
     let nullifier_base = bytes_to_field(&nullifier_array);
 
+    // Parse Merkle siblings from proof
+    let siblings: Result<Vec<[u8; 32]>> = proof
+        .merkle_siblings
+        .iter()
+        .map(|s| {
+            let bytes = hex::decode(s).with_context(|| {
+                format!(
+                    "Failed to decode merkle sibling hex '{}': expected 32-byte hex string",
+                    s
+                )
+            })?;
+            bytes_to_fixed_array(&bytes, "Merkle sibling")
+        })
+        .collect();
+
+    let siblings = siblings.context("Failed to parse merkle siblings from proof")?;
+
     let circuit = SetMembershipCircuit {
         leaf: leaf_base,
         root: root_base,
         nullifier: nullifier_base,
-        siblings: vec![],
+        siblings: siblings.iter().map(bytes_to_field).collect(),
         leaf_index: proof.leaf_index,
     };
 

@@ -3,19 +3,18 @@ use clap::Parser;
 use ethers::signers::{LocalWallet, Signer};
 use halo2_proofs::poly::commitment::Params;
 use pasta_curves::vesta;
-use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 use zkp_set_membership::{
     circuit::{bytes_to_field, SetMembershipCircuit, SetMembershipProver},
     merkle::MerkleTree,
-    types::{compute_nullifier, ZKProofOutput},
+    types::{compute_nullifier, VerificationKey, ZKProofOutput},
     utils::validate_and_strip_hex,
     CIRCUIT_K,
 };
 
-const MAX_ACCOUNTS_FILE_SIZE: u64 = 10 * 1024 * 1024; // 10MB
+const MAX_ACCOUNTS_FILE_SIZE: u64 = 10 * 1024 * 1024;
 const ADDRESS_HEX_LENGTH: usize = 40;
 const PRIVATE_KEY_HEX_LENGTH: usize = 64;
 
@@ -101,22 +100,38 @@ fn main() -> Result<()> {
     let prover_normalized =
         validate_and_strip_hex(&format!("0x{}", prover_address_str), 40)?.to_lowercase();
 
-    let mut leaf_hashes = Vec::new();
+    let mut leaf_hashes = Vec::with_capacity(addresses.len());
     let mut leaf_index = None;
 
     for (i, address) in addresses.iter().enumerate() {
-        let address_bytes = address_to_bytes(address)?;
+        let address_bytes = address_to_bytes(address).with_context(|| {
+            format!("Failed to process address at line {}: '{}'", i + 1, address)
+        })?;
         leaf_hashes.push(address_bytes);
 
-        let addr_normalized = validate_and_strip_hex(address, 40)?.to_lowercase();
+        let addr_normalized = validate_and_strip_hex(address, 40)
+            .with_context(|| {
+                format!(
+                    "Failed to validate address at line {}: '{}'",
+                    i + 1,
+                    address
+                )
+            })?
+            .to_lowercase();
         if addr_normalized == prover_normalized {
+            if leaf_index.is_some() {
+                return Err(anyhow::anyhow!(
+                    "Duplicate prover address found in accounts file at line {}",
+                    i + 1
+                ));
+            }
             leaf_index = Some(i);
             println!("Found prover address at index {}", i);
         }
     }
 
     let leaf_index = leaf_index.context(format!(
-        "Prover address '{}' not found in accounts file '{}'. Make sure your private key corresponds to an address in the set.",
+        "Prover address '0x{}' not found in accounts file '{}'. Make sure your private key corresponds to an address in the set.",
         prover_address_str,
         args.accounts_file.display()
     ))?;
@@ -136,6 +151,15 @@ fn main() -> Result<()> {
     println!("Computing deterministic nullifier...");
     let nullifier = compute_nullifier(&leaf_hash, &root_hash);
     println!("Nullifier: {}", hex::encode(nullifier));
+
+    // Validate leaf_index bounds
+    if leaf_index >= leaf_hashes.len() {
+        return Err(anyhow::anyhow!(
+            "Invalid leaf index {} is out of bounds for {} leaves",
+            leaf_index,
+            leaf_hashes.len()
+        ));
+    }
 
     println!("Creating ZK-SNARK circuit...");
 
@@ -163,10 +187,11 @@ fn main() -> Result<()> {
 
     println!("ZK proof generated, size: {} bytes", zkp_proof.len());
 
-    let mut vk_map = HashMap::new();
-    vk_map.insert("leaf".to_string(), hex::encode(leaf_hash));
-    vk_map.insert("root".to_string(), hex::encode(root_hash));
-    vk_map.insert("nullifier".to_string(), hex::encode(nullifier));
+    let verification_key = VerificationKey {
+        leaf: hex::encode(leaf_hash),
+        root: hex::encode(root_hash),
+        nullifier: hex::encode(nullifier),
+    };
 
     let merkle_siblings: Vec<String> = merkle_proof.siblings.iter().map(hex::encode).collect();
 
@@ -179,7 +204,7 @@ fn main() -> Result<()> {
         merkle_root: hex::encode(merkle_tree.root),
         nullifier: hex::encode(nullifier),
         zkp_proof,
-        verification_key: vk_map,
+        verification_key,
         leaf_index,
         timestamp,
         merkle_siblings,

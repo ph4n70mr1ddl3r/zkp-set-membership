@@ -120,4 +120,50 @@ mod tests {
         // Verification should fail
         assert!(!tree.verify_proof(&proof));
     }
+
+    #[test]
+    fn test_merkle_tree_with_single_leaf() {
+        let leaves = vec![[1u8; 32]];
+        let tree = MerkleTree::new(leaves);
+        let proof = tree.generate_proof(0);
+
+        assert!(proof.is_some());
+        assert!(tree.verify_proof(&proof.unwrap()));
+    }
+
+    #[test]
+    fn test_merkle_tree_with_non_power_of_two() {
+        let leaves = vec![[1u8; 32], [2u8; 32], [3u8; 32]];
+        let tree = MerkleTree::new(leaves);
+        let proof = tree.generate_proof(0);
+
+        assert!(proof.is_some());
+        assert!(tree.verify_proof(&proof.unwrap()));
+    }
+
+    #[test]
+    fn test_merkle_proof_index_boundary() {
+        let leaves = vec![[1u8; 32], [2u8; 32], [4u8; 32], [8u8; 32]];
+
+        let tree = MerkleTree::new(leaves.clone());
+
+        // Test first leaf
+        let proof_first = tree.generate_proof(0).unwrap();
+        assert!(tree.verify_proof(&proof_first));
+
+        // Test last leaf
+        let proof_last = tree.generate_proof(leaves.len() - 1).unwrap();
+        assert!(tree.verify_proof(&proof_last));
+    }
+
+    #[test]
+    fn test_merkle_root_determinism() {
+        let leaves1 = vec![[1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32]];
+        let leaves2 = vec![[1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32]];
+
+        let tree1 = MerkleTree::new(leaves1);
+        let tree2 = MerkleTree::new(leaves2);
+
+        assert_eq!(tree1.root, tree2.root);
+    }
 }
