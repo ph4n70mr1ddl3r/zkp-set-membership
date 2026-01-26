@@ -159,7 +159,7 @@ fn main() -> Result<()> {
 
     let siblings = siblings.context("Failed to parse merkle siblings from proof")?;
 
-    let circuit = SetMembershipCircuit {
+    let _circuit = SetMembershipCircuit {
         leaf: leaf_base,
         root: root_base,
         nullifier: nullifier_base,

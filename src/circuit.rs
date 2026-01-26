@@ -7,9 +7,6 @@
 //! 2. Nullifier derivation: nullifier = H(leaf || root)
 //! 3. Public input constraints: instance values match advice values
 
-use halo2_gadgets::poseidon::primitives::{
-    self as poseidon, ConstantLength, P128Pow5T3 as PoseidonSpec,
-};
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner, Value},
     plonk::{
@@ -121,12 +118,6 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
 
         Ok(())
     }
-}
-
-// Actual Poseidon hash implementation using the standard P128Pow5T3 spec
-fn poseidon_hash(left: pallas::Base, right: pallas::Base) -> pallas::Base {
-    let inputs = [left, right];
-    poseidon::Hash::<_, PoseidonSpec, ConstantLength<2>, 3, 2>::init().hash(inputs)
 }
 
 const BASE_U64: u64 = 256;
