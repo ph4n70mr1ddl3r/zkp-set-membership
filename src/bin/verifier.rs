@@ -75,7 +75,20 @@ fn main() -> Result<()> {
     println!("Verifying ZK proof...");
     let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
 
-    // Parse hex strings from the proof
+    let nullifier_file = args.proof_file.replace(".json", "_nullifiers.txt");
+    if std::path::Path::new(&nullifier_file).exists() {
+        let existing_nullifiers = fs::read_to_string(&nullifier_file)?;
+        if existing_nullifiers
+            .lines()
+            .any(|line| line.trim() == proof.nullifier)
+        {
+            return Err(anyhow::anyhow!(
+                "Proof replay detected: nullifier {} has already been used",
+                proof.nullifier
+            ));
+        }
+    }
+
     let leaf_hex = proof.verification_key["leaf"].clone();
     let root_hex = proof.merkle_root.clone();
     let nullifier_hex = proof.nullifier.clone();
@@ -130,6 +143,10 @@ fn main() -> Result<()> {
             println!("\nDeterministic nullifier: {}", proof.nullifier);
             println!("This nullifier can be used to prevent double-spending or");
             println!("reuse of same proof while maintaining privacy.");
+
+            fs::write(&nullifier_file, format!("{}\n", proof.nullifier))
+                .context("Failed to record nullifier")?;
+            println!("\nNullifier recorded to: {}", nullifier_file);
             Ok(())
         }
         Err(e) => {

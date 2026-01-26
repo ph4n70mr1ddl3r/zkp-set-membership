@@ -8,9 +8,18 @@
 //! 2. Constraint enforcement that leaf + siblings produces the root
 //! 3. Nullifier derivation constraint: nullifier = H(public_key || merkle_root)
 //!
-//! Currently, the circuit only assigns values without enforcing constraints,
-//! which means proofs can be generated for any values without validation.
+//! Currently, the circuit only assigns values with minimal constraints,
+//! which means proofs can be generated for invalid values in some cases.
 //! This is intended for testing and prototyping only.
+//!
+//! # Production Requirements
+//!
+//! Before using in production:
+//! - Implement Poseidon hash chip for efficient in-circuit hashing
+//! - Add Merkle path verification constraints
+//! - Add nullifier verification constraints (H(leaf || root) == nullifier)
+//! - Add proper range checks for all inputs
+//! - Perform security audits of the circuit constraints
 
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner, Value},
