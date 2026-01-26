@@ -55,6 +55,10 @@ impl MerkleTree {
     ///
     /// # Returns
     /// A MerkleTree instance with computed root hash
+    ///
+    /// # Note
+    /// For optimal performance, the number of leaves should be a power of 2.
+    /// If not, the tree will handle it by propagating odd nodes up.
     pub fn new(leaves: Vec<[u8; 32]>) -> Self {
         let mut level = leaves.clone();
 

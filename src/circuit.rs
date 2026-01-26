@@ -20,6 +20,7 @@
 //! - Add nullifier verification constraints (H(leaf || root) == nullifier)
 //! - Add proper range checks for all inputs
 //! - Perform security audits of the circuit constraints
+//! - Consider using a trusted setup ceremony for parameter generation
 
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner, Value},

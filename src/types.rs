@@ -23,6 +23,17 @@ pub struct ZKProofOutput {
 }
 
 impl ZKProofOutput {
+    /// Validates the proof output structure and cryptographic consistency.
+    ///
+    /// # Returns
+    /// `Ok(())` if the proof is valid, or an error if validation fails.
+    ///
+    /// # Validation Checks
+    /// - Ensures merkle_root, nullifier, and zkp_proof are non-empty
+    /// - Verifies that merkle_siblings contains at least one element
+    /// - Checks that the verification key contains the required 'leaf' field
+    /// - Validates that leaf and root are 32-byte hashes
+    /// - Verifies the nullifier was correctly derived from leaf and root
     pub fn validate(&self) -> Result<()> {
         if self.merkle_root.is_empty() {
             return Err(anyhow::anyhow!("Merkle root cannot be empty"));
@@ -71,7 +82,7 @@ impl ZKProofOutput {
     }
 }
 
-fn compute_nullifier(leaf_bytes: &[u8], merkle_root: &[u8]) -> [u8; HASH_SIZE] {
+pub fn compute_nullifier(leaf_bytes: &[u8], merkle_root: &[u8]) -> [u8; HASH_SIZE] {
     let mut hasher = Sha3_256::new();
     hasher.update(leaf_bytes);
     hasher.update(merkle_root);

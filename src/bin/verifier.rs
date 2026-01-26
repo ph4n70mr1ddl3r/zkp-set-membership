@@ -9,8 +9,8 @@ use zkp_set_membership::{
     CIRCUIT_K,
 };
 
-const MAX_PROOF_FILE_SIZE: u64 = 1024 * 1024;
-const MAX_ZK_PROOF_SIZE: usize = 512 * 1024;
+const MAX_PROOF_FILE_SIZE: u64 = 1024 * 1024; // 1MB
+const MAX_ZK_PROOF_SIZE: usize = 512 * 1024; // 512KB
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -35,7 +35,7 @@ fn main() -> Result<()> {
 
     if metadata.len() > MAX_PROOF_FILE_SIZE {
         return Err(anyhow::anyhow!(
-            "Proof file too large: {} bytes (max {} bytes)",
+            "Proof file too large: {} bytes (max {} bytes). This may indicate a corrupted or invalid proof file.",
             metadata.len(),
             MAX_PROOF_FILE_SIZE
         ));
@@ -59,7 +59,7 @@ fn main() -> Result<()> {
 
     if proof.zkp_proof.len() > MAX_ZK_PROOF_SIZE {
         return Err(anyhow::anyhow!(
-            "ZK proof size exceeds limit: {} bytes (max {} bytes)",
+            "ZK proof size exceeds limit: {} bytes (max {} bytes). The proof may be malformed or generated with incompatible parameters.",
             proof.zkp_proof.len(),
             MAX_ZK_PROOF_SIZE
         ));

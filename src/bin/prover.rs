@@ -3,7 +3,6 @@ use clap::Parser;
 use ethers::signers::{LocalWallet, Signer};
 use halo2_proofs::poly::commitment::Params;
 use pasta_curves::vesta;
-use sha3::{Digest, Sha3_256};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -11,13 +10,14 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use zkp_set_membership::{
     circuit::{bytes_to_field, SetMembershipCircuit, SetMembershipProver},
     merkle::MerkleTree,
-    types::ZKProofOutput,
+    types::{compute_nullifier, ZKProofOutput},
     utils::validate_and_strip_hex,
     CIRCUIT_K,
 };
 
 const MAX_ACCOUNTS_FILE_SIZE: u64 = 10 * 1024 * 1024; // 10MB
 const ADDRESS_HEX_LENGTH: usize = 40;
+const PRIVATE_KEY_HEX_LENGTH: usize = 64;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -47,15 +47,8 @@ fn address_to_bytes(address: &str) -> Result<[u8; 32]> {
 }
 
 fn validate_private_key(private_key: &str) -> Result<()> {
-    validate_and_strip_hex(private_key, 64)?;
+    validate_and_strip_hex(private_key, PRIVATE_KEY_HEX_LENGTH)?;
     Ok(())
-}
-
-fn compute_nullifier(address_bytes: &[u8; 32], merkle_root: &[u8; 32]) -> [u8; 32] {
-    let mut hasher = Sha3_256::new();
-    hasher.update(address_bytes);
-    hasher.update(merkle_root);
-    hasher.finalize().into()
 }
 
 fn main() -> Result<()> {
@@ -69,7 +62,7 @@ fn main() -> Result<()> {
     let content_size = accounts_content.len() as u64;
     if content_size > MAX_ACCOUNTS_FILE_SIZE {
         return Err(anyhow::anyhow!(
-            "Accounts file too large: {} bytes (max {} bytes)",
+            "Accounts file too large: {} bytes (max {} bytes). Please reduce the number of accounts or split into multiple files.",
             content_size,
             MAX_ACCOUNTS_FILE_SIZE
         ));
@@ -83,7 +76,7 @@ fn main() -> Result<()> {
 
     if addresses.is_empty() {
         return Err(anyhow::anyhow!(
-            "No valid addresses found in accounts file '{}'",
+            "No valid addresses found in accounts file '{}'. Please ensure the file contains Ethereum addresses (one per line).",
             args.accounts_file.display()
         ));
     }
