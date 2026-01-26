@@ -1,7 +1,19 @@
 use anyhow::{anyhow, Context};
+use clap::Parser;
 use ethers::signers::{LocalWallet, Signer};
 use std::fs::File;
 use std::io::Write;
+use std::path::PathBuf;
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    #[arg(short, long, default_value = "1000")]
+    count: usize,
+
+    #[arg(short, long, default_value = "test_accounts.txt")]
+    output_file: PathBuf,
+}
 
 fn generate_random_ethereum_addresses(count: usize) -> Vec<String> {
     let mut addresses = Vec::new();
@@ -26,8 +38,9 @@ fn check_duplicates(addresses: &[String]) -> bool {
 }
 
 fn main() -> anyhow::Result<()> {
-    let count = 1000;
-    let output_file = "test_accounts.txt";
+    let args = Args::parse();
+    let count = args.count;
+    let output_file = args.output_file;
 
     println!("Generating {} random Ethereum addresses...", count);
     let addresses = generate_random_ethereum_addresses(count);
@@ -40,9 +53,9 @@ fn main() -> anyhow::Result<()> {
         return Err(anyhow!("Generated duplicate addresses"));
     }
 
-    println!("Writing addresses to {}...", output_file);
-    let mut file = File::create(output_file)
-        .with_context(|| format!("Failed to create output file: {}", output_file))?;
+    println!("Writing addresses to {}...", output_file.display());
+    let mut file = File::create(&output_file)
+        .with_context(|| format!("Failed to create output file: {}", output_file.display()))?;
     for address in &addresses {
         writeln!(file, "{}", address).context("Failed to write address to file")?;
     }

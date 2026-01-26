@@ -105,8 +105,7 @@ fn main() -> Result<()> {
     let prover_address_str = format!("{:x}", prover_address);
     println!("Prover address: 0x{}", prover_address_str);
 
-    let prover_normalized =
-        validate_and_strip_hex(&format!("0x{}", prover_address_str), 40)?.to_lowercase();
+    let prover_normalized = validate_and_strip_hex(&prover_address_str, 40)?.to_lowercase();
 
     let mut leaf_hashes = Vec::with_capacity(addresses.len());
     let mut leaf_index = None;

@@ -65,6 +65,10 @@ pub fn validate_and_strip_hex(input: &str, expected_len: usize) -> Result<String
 pub fn validate_hex_string(input: &str) -> Result<()> {
     let stripped = strip_hex_prefix(input);
 
+    if stripped.is_empty() {
+        return Err(anyhow::anyhow!("Invalid hex string: cannot be empty"));
+    }
+
     if !is_valid_hex_string(stripped) {
         return Err(anyhow::anyhow!(
             "Invalid hex string: contains non-hex characters"
@@ -151,7 +155,8 @@ mod tests {
     #[test]
     fn test_validate_hex_string_empty() {
         let result = validate_hex_string("");
-        assert!(result.is_ok());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("cannot be empty"));
     }
 
     #[test]

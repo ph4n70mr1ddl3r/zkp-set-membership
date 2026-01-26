@@ -46,6 +46,9 @@ pub struct SetMembershipCircuit {
     pub leaf: pallas::Base,
     pub root: pallas::Base,
     pub nullifier: pallas::Base,
+    /// Merkle path siblings for inclusion proof.
+    /// Currently stored but not enforced in circuit constraints.
+    /// TODO: Implement circuit constraints to verify Merkle path using these siblings.
     pub siblings: Vec<pallas::Base>,
     pub leaf_index: usize,
 }
@@ -59,6 +62,10 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
     }
 
     fn configure(meta: &mut ConstraintSystem<pallas::Base>) -> Self::Config {
+        // TODO: CRITICAL: Add proper cryptographic constraints here
+        // 1. Merkle path verification using Poseidon hash
+        // 2. Constraint that leaf + siblings produces root
+        // 3. Nullifier verification: H(leaf || root) == nullifier
         let leaf_cell = meta.advice_column();
         let root_cell = meta.advice_column();
         let nullifier_cell = meta.advice_column();
@@ -109,6 +116,17 @@ const BASE_U64: u64 = 256;
 /// # Returns
 ///
 /// A Pallas field element representing the input bytes
+///
+/// This function interprets the 32-byte input as a base-256 number
+/// and reduces it modulo the field order.
+///
+/// # Arguments
+///
+/// * `bytes` - A 32-byte slice to convert
+///
+/// # Returns
+///
+/// A Pallas field element representing the input bytes
 pub fn bytes_to_field(bytes: &[u8; 32]) -> pallas::Base {
     let mut value = pallas::Base::zero();
     let base = pallas::Base::from(BASE_U64);
@@ -138,6 +156,8 @@ impl SetMembershipProver {
         circuit: SetMembershipCircuit,
         public_inputs: Vec<pallas::Base>,
     ) -> Result<Vec<u8>, Error> {
+        // TODO: CRITICAL: Key generation is expensive and should be cached
+        // Consider storing serialized vk and pk and loading them instead
         let vk = keygen_vk(params, &circuit)?;
         let pk = keygen_pk(params, vk, &circuit)?;
 
@@ -174,6 +194,8 @@ impl SetMembershipProver {
         proof: &[u8],
         public_inputs: Vec<pallas::Base>,
     ) -> Result<bool, Error> {
+        // TODO: CRITICAL: Should use a fixed verification key instead of regenerating
+        // Regenerating VK defeats the purpose of trusted setup verification keys
         let vk = keygen_vk(params, &circuit)?;
 
         let strategy = SingleVerifier::new(params);
