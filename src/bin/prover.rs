@@ -16,7 +16,7 @@ use zkp_set_membership::{
     CIRCUIT_K,
 };
 
-const MAX_ACCOUNTS_FILE_SIZE: u64 = 100 * 1024 * 1024; // 100MB
+const MAX_ACCOUNTS_FILE_SIZE: u64 = 10 * 1024 * 1024; // 10MB
 const ADDRESS_HEX_LENGTH: usize = 40;
 
 #[derive(Parser, Debug)]
@@ -63,19 +63,17 @@ fn main() -> Result<()> {
 
     println!("Loading accounts from: {:?}", args.accounts_file);
 
-    let metadata =
-        fs::metadata(&args.accounts_file).context("Failed to read accounts file metadata")?;
+    let accounts_content =
+        fs::read_to_string(&args.accounts_file).context("Failed to read accounts file")?;
 
-    if metadata.len() > MAX_ACCOUNTS_FILE_SIZE {
+    let content_size = accounts_content.len() as u64;
+    if content_size > MAX_ACCOUNTS_FILE_SIZE {
         return Err(anyhow::anyhow!(
             "Accounts file too large: {} bytes (max {} bytes)",
-            metadata.len(),
+            content_size,
             MAX_ACCOUNTS_FILE_SIZE
         ));
     }
-
-    let accounts_content =
-        fs::read_to_string(&args.accounts_file).context("Failed to read accounts file")?;
 
     let addresses: Vec<String> = accounts_content
         .lines()
@@ -107,21 +105,25 @@ fn main() -> Result<()> {
     let prover_address_str = format!("{:x}", prover_address);
     println!("Prover address: 0x{}", prover_address_str);
 
+    let prover_normalized =
+        validate_and_strip_hex(&format!("0x{}", prover_address_str), 40)?.to_lowercase();
+
     let mut leaf_hashes = Vec::new();
     let mut leaf_index = None;
+    let mut address_map: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
 
     for (i, address) in addresses.iter().enumerate() {
         let address_bytes = address_to_bytes(address)?;
         leaf_hashes.push(address_bytes);
 
-        // Normalize both addresses for comparison
-        let addr_normalized = validate_and_strip_hex(address, 40)?;
-        let prover_normalized = validate_and_strip_hex(&format!("0x{}", prover_address_str), 40)?;
+        let addr_normalized = validate_and_strip_hex(address, 40)?.to_lowercase();
+        address_map.insert(addr_normalized.clone(), i);
+    }
 
-        if addr_normalized.to_lowercase() == prover_normalized.to_lowercase() {
-            leaf_index = Some(i);
-            println!("Found prover address at index {}", i);
-        }
+    if let Some(&index) = address_map.get(&prover_normalized) {
+        leaf_index = Some(index);
+        println!("Found prover address at index {}", index);
     }
 
     let leaf_index = leaf_index.context(format!(
@@ -179,16 +181,18 @@ fn main() -> Result<()> {
 
     let merkle_siblings: Vec<String> = merkle_proof.siblings.iter().map(hex::encode).collect();
 
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .context("System time is before Unix epoch")?
+        .as_secs();
+
     let output = ZKProofOutput {
         merkle_root: hex::encode(merkle_tree.root),
         nullifier: hex::encode(nullifier),
         zkp_proof,
         verification_key: vk_map,
         leaf_index,
-        timestamp: SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs(),
+        timestamp,
         merkle_siblings,
     };
 

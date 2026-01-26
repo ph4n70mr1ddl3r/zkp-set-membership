@@ -9,8 +9,8 @@ use zkp_set_membership::{
     CIRCUIT_K,
 };
 
-const MAX_PROOF_FILE_SIZE: u64 = 10 * 1024 * 1024; // 10MB
-const MAX_ZK_PROOF_SIZE: usize = 1024 * 1024; // 1MB
+const MAX_PROOF_FILE_SIZE: u64 = 1024 * 1024; // 1MB
+const MAX_ZK_PROOF_SIZE: usize = 512 * 1024; // 512KB
 const HASH_SIZE: usize = 32;
 
 #[derive(Parser, Debug)]

@@ -8,7 +8,8 @@ use std::fmt;
 
 /// A Merkle proof for leaf inclusion.
 ///
-/// Contains the leaf value, root hash, sibling hashes, and leaf index.
+/// Contains the leaf value, root hash, sibling hashes, and leaf index needed
+/// to verify that a specific leaf is included in the Merkle tree.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MerkleProof {
     pub leaf: [u8; 32],
@@ -17,9 +18,22 @@ pub struct MerkleProof {
     pub index: usize,
 }
 
-/// A binary Merkle tree.
+/// A binary Merkle tree using SHA3-256 for hashing.
 ///
-/// Stores the root hash and all leaves. Supports proof generation and verification.
+/// This implementation stores the root hash and all leaves, supporting
+/// proof generation and verification for set membership.
+///
+/// # Examples
+///
+/// ```
+/// use zkp_set_membership::merkle::MerkleTree;
+///
+/// let leaves = vec![[1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32]];
+/// let tree = MerkleTree::new(leaves.clone());
+///
+/// let proof = tree.generate_proof(0).unwrap();
+/// assert!(tree.verify_proof(&proof));
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MerkleTree {
     pub root: [u8; 32],

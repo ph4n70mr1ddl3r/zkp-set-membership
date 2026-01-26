@@ -1,13 +1,16 @@
-// ZK-SNARK circuit for set membership proof.
-//
-// TODO: The circuit currently lacks proper cryptographic constraints.
-// The following should be implemented:
-// 1. Merkle path verification using Poseidon hash in the circuit
-// 2. Constraint enforcement that leaf + siblings produces the root
-// 3. Nullifier derivation constraint: nullifier = H(public_key || merkle_root)
-//
-// Currently, the circuit only assigns values without enforcing constraints,
-// which means proofs can be generated for any values without validation.
+//! ZK-SNARK circuit for set membership proof.
+//!
+//! # Important Security Note
+//!
+//! The circuit currently lacks proper cryptographic constraints. The following
+//! should be implemented for production use:
+//! 1. Merkle path verification using Poseidon hash in the circuit
+//! 2. Constraint enforcement that leaf + siblings produces the root
+//! 3. Nullifier derivation constraint: nullifier = H(public_key || merkle_root)
+//!
+//! Currently, the circuit only assigns values without enforcing constraints,
+//! which means proofs can be generated for any values without validation.
+//! This is intended for testing and prototyping only.
 
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner, Value},
@@ -82,19 +85,23 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
     }
 }
 
+const BASE_U64: u64 = 256;
+
 /// Converts 32 bytes to a field element in the Pallas curve.
 ///
 /// This function interprets the 32-byte input as a base-256 number
 /// and reduces it modulo the field order.
 ///
 /// # Arguments
+///
 /// * `bytes` - A 32-byte slice to convert
 ///
 /// # Returns
+///
 /// A Pallas field element representing the input bytes
 pub fn bytes_to_field(bytes: &[u8; 32]) -> pallas::Base {
     let mut value = pallas::Base::zero();
-    let base = pallas::Base::from(256u64);
+    let base = pallas::Base::from(BASE_U64);
 
     for &byte in bytes.iter() {
         value = value * base + pallas::Base::from(byte as u64);
