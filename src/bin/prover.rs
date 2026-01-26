@@ -28,8 +28,11 @@ struct Args {
 }
 
 fn address_to_bytes(address: &str) -> Result<[u8; 32]> {
-    let address = address.trim();
-    let address = address.trim_start_matches("0x").trim_start_matches("0X");
+    let address = address
+        .trim()
+        .strip_prefix("0x")
+        .or_else(|| address.trim().strip_prefix("0X"))
+        .unwrap_or_else(|| address.trim());
 
     if address.len() != 40 {
         return Err(anyhow::anyhow!(
@@ -57,8 +60,9 @@ fn address_to_bytes(address: &str) -> Result<[u8; 32]> {
 fn validate_private_key(private_key: &str) -> Result<()> {
     let key = private_key
         .trim()
-        .trim_start_matches("0x")
-        .trim_start_matches("0X");
+        .strip_prefix("0x")
+        .or_else(|| private_key.trim().strip_prefix("0X"))
+        .unwrap_or_else(|| private_key.trim());
 
     if key.len() != 64 {
         return Err(anyhow::anyhow!(
@@ -182,11 +186,7 @@ fn main() -> Result<()> {
         leaf: leaf_base,
         root: root_base,
         nullifier: nullifier_base,
-        siblings: merkle_proof
-            .siblings
-            .iter()
-            .map(|s| bytes_to_field(s))
-            .collect(),
+        siblings: merkle_proof.siblings.iter().map(bytes_to_field).collect(),
         leaf_index,
     };
 
@@ -207,11 +207,7 @@ fn main() -> Result<()> {
     vk_map.insert("root".to_string(), hex::encode(root_hash));
     vk_map.insert("nullifier".to_string(), hex::encode(nullifier));
 
-    let merkle_siblings: Vec<String> = merkle_proof
-        .siblings
-        .iter()
-        .map(|s| hex::encode(s))
-        .collect();
+    let merkle_siblings: Vec<String> = merkle_proof.siblings.iter().map(hex::encode).collect();
 
     let output = ZKProofOutput {
         merkle_root: hex::encode(merkle_tree.root),
