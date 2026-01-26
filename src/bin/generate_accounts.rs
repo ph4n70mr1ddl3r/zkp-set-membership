@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Context};
 use ethers::signers::{LocalWallet, Signer};
 use std::fs::File;
 use std::io::Write;
@@ -24,7 +25,7 @@ fn check_duplicates(addresses: &[String]) -> bool {
     unique_count.len() == addresses.len()
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> anyhow::Result<()> {
     let count = 1000;
     let output_file = "test_accounts.txt";
 
@@ -32,17 +33,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addresses = generate_random_ethereum_addresses(count);
 
     if !validate_addresses(&addresses) {
-        return Err("Generated invalid addresses".into());
+        return Err(anyhow!("Generated invalid addresses"));
     }
 
     if !check_duplicates(&addresses) {
-        return Err("Generated duplicate addresses".into());
+        return Err(anyhow!("Generated duplicate addresses"));
     }
 
     println!("Writing addresses to {}...", output_file);
-    let mut file = File::create(output_file)?;
+    let mut file = File::create(output_file)
+        .with_context(|| format!("Failed to create output file: {}", output_file))?;
     for address in &addresses {
-        writeln!(file, "{}", address)?;
+        writeln!(file, "{}", address).context("Failed to write address to file")?;
     }
 
     println!("Successfully generated {} addresses", count);

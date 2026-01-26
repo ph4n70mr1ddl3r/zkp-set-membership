@@ -34,6 +34,8 @@ impl ZKProofOutput {
     /// - Checks that the verification key contains the required 'leaf' field
     /// - Validates that leaf and root are 32-byte hashes
     /// - Verifies the nullifier was correctly derived from leaf and root
+    /// - Validates timestamp is reasonable (not in future)
+    /// - Validates leaf_index is non-negative
     pub fn validate(&self) -> Result<()> {
         if self.merkle_root.is_empty() {
             return Err(anyhow::anyhow!("Merkle root cannot be empty"));
@@ -46,6 +48,19 @@ impl ZKProofOutput {
         }
         if self.merkle_siblings.is_empty() {
             return Err(anyhow::anyhow!("Merkle siblings cannot be empty"));
+        }
+
+        let current_timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+
+        if self.timestamp > current_timestamp {
+            return Err(anyhow::anyhow!(
+                "Timestamp is in the future: {} (current: {})",
+                self.timestamp,
+                current_timestamp
+            ));
         }
 
         let leaf_hex = self

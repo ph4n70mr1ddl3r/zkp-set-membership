@@ -60,7 +60,12 @@ impl MerkleTree {
     /// For optimal performance, the number of leaves should be a power of 2.
     /// If not, the tree will handle it by propagating odd nodes up.
     pub fn new(leaves: Vec<[u8; 32]>) -> Self {
-        let mut level = leaves.clone();
+        let root = Self::compute_root(&leaves);
+        MerkleTree { root, leaves }
+    }
+
+    fn compute_root(leaves: &[[u8; 32]]) -> [u8; 32] {
+        let mut level = leaves.to_vec();
 
         while level.len() > 1 {
             let mut new_level = Vec::new();
@@ -75,10 +80,7 @@ impl MerkleTree {
             level = new_level;
         }
 
-        MerkleTree {
-            root: level[0],
-            leaves,
-        }
+        level[0]
     }
 
     /// Generate a Merkle proof for a leaf at the given index.
@@ -94,7 +96,7 @@ impl MerkleTree {
         }
 
         let mut siblings = Vec::new();
-        let mut level: Vec<[u8; 32]> = self.leaves.clone();
+        let mut level: Vec<[u8; 32]> = self.leaves.to_vec();
         let mut index = leaf_index;
 
         while level.len() > 1 {

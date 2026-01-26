@@ -6,6 +6,14 @@ fn is_valid_hex_string(s: &str) -> bool {
     s.chars().all(|c| c.is_ascii_hexdigit())
 }
 
+fn strip_hex_prefix(input: &str) -> &str {
+    input
+        .trim()
+        .strip_prefix("0x")
+        .or_else(|| input.trim().strip_prefix("0X"))
+        .unwrap_or_else(|| input.trim())
+}
+
 /// Validates and strips hex prefix from a string.
 ///
 /// # Arguments
@@ -26,11 +34,7 @@ fn is_valid_hex_string(s: &str) -> bool {
 /// assert_eq!(result, "1234abcd");
 /// ```
 pub fn validate_and_strip_hex(input: &str, expected_len: usize) -> Result<String> {
-    let stripped = input
-        .trim()
-        .strip_prefix("0x")
-        .or_else(|| input.trim().strip_prefix("0X"))
-        .unwrap_or_else(|| input.trim());
+    let stripped = strip_hex_prefix(input);
 
     if stripped.len() != expected_len {
         return Err(anyhow::anyhow!(
@@ -59,11 +63,7 @@ pub fn validate_and_strip_hex(input: &str, expected_len: usize) -> Result<String
 ///
 /// `Ok(())` if the string is valid hex, or an error if validation fails.
 pub fn validate_hex_string(input: &str) -> Result<()> {
-    let stripped = input
-        .trim()
-        .strip_prefix("0x")
-        .or_else(|| input.trim().strip_prefix("0X"))
-        .unwrap_or_else(|| input.trim());
+    let stripped = strip_hex_prefix(input);
 
     if !is_valid_hex_string(stripped) {
         return Err(anyhow::anyhow!(

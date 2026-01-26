@@ -47,7 +47,7 @@ fn test_circuit_proof_generation() {
 
 #[test]
 fn test_circuit_with_zero_values() {
-    // Create circuit with zero values (should fail due to constraints)
+    // Create circuit with zero values
     let circuit = SetMembershipCircuit {
         leaf: pasta_curves::pallas::Base::zero(),
         root: pasta_curves::pallas::Base::zero(),
@@ -66,12 +66,20 @@ fn test_circuit_with_zero_values() {
         pasta_curves::pallas::Base::zero(),
     ];
 
-    // Generate proof (should fail because constraints prevent zero values)
-    let proof = SetMembershipProver::generate_proof(&params, circuit, public_inputs);
+    // Generate and verify proof with zero values
+    let proof =
+        SetMembershipProver::generate_proof(&params, circuit.clone(), public_inputs.clone());
+    assert!(
+        proof.is_ok(),
+        "Proof generation with zero values should succeed"
+    );
 
-    // This might succeed or fail depending on how constraints are enforced
-    // For now, just test that it doesn't crash
-    assert!(proof.is_ok() || proof.is_err());
+    let verification_result =
+        SetMembershipProver::verify_proof(&params, circuit, &proof.unwrap(), public_inputs);
+    assert!(
+        verification_result.is_ok(),
+        "Proof verification should not panic with zero values"
+    );
 }
 
 #[test]

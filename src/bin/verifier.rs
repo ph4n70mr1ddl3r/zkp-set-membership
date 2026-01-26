@@ -92,12 +92,24 @@ fn main() -> Result<()> {
     let root_hex = proof.merkle_root.clone();
     let nullifier_hex = proof.nullifier.clone();
 
-    let leaf_bytes =
-        hex::decode(&leaf_hex).context(format!("Failed to decode leaf '{}'", leaf_hex))?;
-    let root_bytes =
-        hex::decode(&root_hex).context(format!("Failed to decode merkle root '{}'", root_hex))?;
-    let nullifier_bytes = hex::decode(&nullifier_hex)
-        .context(format!("Failed to decode nullifier '{}'", nullifier_hex))?;
+    let leaf_bytes = hex::decode(&leaf_hex).with_context(|| {
+        format!(
+            "Failed to decode leaf hex '{}': expected 32-byte hex string",
+            leaf_hex
+        )
+    })?;
+    let root_bytes = hex::decode(&root_hex).with_context(|| {
+        format!(
+            "Failed to decode merkle root hex '{}': expected 32-byte hex string",
+            root_hex
+        )
+    })?;
+    let nullifier_bytes = hex::decode(&nullifier_hex).with_context(|| {
+        format!(
+            "Failed to decode nullifier hex '{}': expected 32-byte hex string",
+            nullifier_hex
+        )
+    })?;
 
     // Ensure we have 32-byte arrays
     let leaf_array = bytes_to_fixed_array(&leaf_bytes, "Leaf")?;
