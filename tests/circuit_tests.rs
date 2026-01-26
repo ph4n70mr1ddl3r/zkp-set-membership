@@ -1,21 +1,62 @@
 use halo2_proofs::poly::commitment::Params;
-use pasta_curves::vesta;
+use pasta_curves::{pallas, vesta};
 use zkp_set_membership::circuit::{bytes_to_field, SetMembershipCircuit, SetMembershipProver};
 use zkp_set_membership::CIRCUIT_K;
 
+// Helper to generate valid test data with proper constraints
+fn generate_valid_test_data(leaf_bytes: [u8; 32]) -> (SetMembershipCircuit, Vec<pallas::Base>) {
+    let leaf = bytes_to_field(&leaf_bytes);
+
+    // For simplest case with no siblings, root = leaf
+    let root = leaf;
+
+    // For the circuit constraint leaf + root = nullifier
+    let nullifier = leaf + root;
+
+    let circuit = SetMembershipCircuit {
+        leaf,
+        root,
+        nullifier,
+        siblings: vec![],
+        leaf_index: 0,
+    };
+
+    let public_inputs = vec![leaf, root, nullifier];
+
+    (circuit, public_inputs)
+}
+
 #[test]
 fn test_circuit_proof_generation() {
-    // Create test values
-    let leaf_bytes = [1u8; 32];
-    let root_bytes = [2u8; 32];
-    let nullifier_bytes = [3u8; 32];
+    let leaf_bytes = [42u8; 32];
+    let (circuit, public_inputs) = generate_valid_test_data(leaf_bytes);
 
-    // Convert to field elements
-    let leaf = bytes_to_field(&leaf_bytes);
-    let root = bytes_to_field(&root_bytes);
-    let nullifier = bytes_to_field(&nullifier_bytes);
+    // Generate parameters
+    let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
 
-    // Create circuit
+    let mut prover = SetMembershipProver::new();
+    prover
+        .generate_and_cache_keys(&params)
+        .expect("Failed to generate keys");
+    let proof = prover.generate_proof(&params, circuit.clone(), public_inputs.clone());
+    assert!(proof.is_ok(), "Proof generation should succeed");
+
+    let verification_result = prover.verify_proof(&params, &proof.unwrap(), public_inputs);
+    assert!(
+        verification_result.is_ok(),
+        "Proof verification should succeed"
+    );
+    assert!(verification_result.unwrap(), "Proof should be valid");
+}
+
+#[test]
+fn test_circuit_with_zero_values() {
+    // Create circuit with zero values
+    let leaf = pallas::Base::zero();
+    let root = pallas::Base::zero();
+    // For the circuit constraint leaf + root = nullifier
+    let nullifier = leaf + root;
+
     let circuit = SetMembershipCircuit {
         leaf,
         root,
@@ -30,50 +71,18 @@ fn test_circuit_proof_generation() {
     // Public inputs
     let public_inputs = vec![leaf, root, nullifier];
 
-    // Generate proof
-    let mut prover = SetMembershipProver::new();
-    let proof = prover.generate_proof(&params, circuit.clone(), public_inputs.clone());
-    assert!(proof.is_ok(), "Proof generation should succeed");
-
-    // Verify proof
-    let verification_result = prover.verify_proof(&params, circuit, &proof.unwrap(), public_inputs);
-    assert!(
-        verification_result.is_ok(),
-        "Proof verification should succeed"
-    );
-    assert!(verification_result.unwrap(), "Proof should be valid");
-}
-
-#[test]
-fn test_circuit_with_zero_values() {
-    // Create circuit with zero values
-    let circuit = SetMembershipCircuit {
-        leaf: pasta_curves::pallas::Base::zero(),
-        root: pasta_curves::pallas::Base::zero(),
-        nullifier: pasta_curves::pallas::Base::zero(),
-        siblings: vec![],
-        leaf_index: 0,
-    };
-
-    // Generate parameters
-    let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
-
-    // Public inputs
-    let public_inputs = vec![
-        pasta_curves::pallas::Base::zero(),
-        pasta_curves::pallas::Base::zero(),
-        pasta_curves::pallas::Base::zero(),
-    ];
-
     // Generate and verify proof with zero values
     let mut prover = SetMembershipProver::new();
+    prover
+        .generate_and_cache_keys(&params)
+        .expect("Failed to generate keys");
     let proof = prover.generate_proof(&params, circuit.clone(), public_inputs.clone());
     assert!(
         proof.is_ok(),
         "Proof generation with zero values should succeed"
     );
 
-    let verification_result = prover.verify_proof(&params, circuit, &proof.unwrap(), public_inputs);
+    let verification_result = prover.verify_proof(&params, &proof.unwrap(), public_inputs);
     assert!(
         verification_result.is_ok(),
         "Proof verification should not panic with zero values"
@@ -87,7 +96,7 @@ fn test_bytes_to_field() {
     let field_element = bytes_to_field(&test_bytes);
 
     // Ensure it's not zero
-    assert_ne!(field_element, pasta_curves::pallas::Base::zero());
+    assert_ne!(field_element, pallas::Base::zero());
 
     // Test different inputs produce different outputs
     let other_bytes = [2u8; 32];
@@ -97,38 +106,28 @@ fn test_bytes_to_field() {
 
 #[test]
 fn test_proof_with_invalid_public_inputs() {
-    // Create test values
-    let leaf_bytes = [1u8; 32];
-    let root_bytes = [2u8; 32];
-    let nullifier_bytes = [3u8; 32];
-
-    let leaf = bytes_to_field(&leaf_bytes);
-    let root = bytes_to_field(&root_bytes);
-    let nullifier = bytes_to_field(&nullifier_bytes);
-
-    let circuit = SetMembershipCircuit {
-        leaf,
-        root,
-        nullifier,
-        siblings: vec![],
-        leaf_index: 0,
-    };
+    let leaf_bytes = [42u8; 32];
+    let (circuit, public_inputs) = generate_valid_test_data(leaf_bytes);
 
     let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
 
-    // Generate proof with original inputs
-    let public_inputs_original = vec![leaf, root, nullifier];
+    // Generate proof with valid inputs
     let mut prover = SetMembershipProver::new();
+    prover
+        .generate_and_cache_keys(&params)
+        .expect("Failed to generate keys");
     let proof = prover
-        .generate_proof(&params, circuit.clone(), public_inputs_original)
+        .generate_proof(&params, circuit.clone(), public_inputs)
         .unwrap();
 
     // Try to verify with different public inputs
-    let invalid_inputs = vec![leaf, root, pasta_curves::pallas::Base::one()];
-    let result = prover.verify_proof(&params, circuit, &proof, invalid_inputs);
+    let invalid_leaf = bytes_to_field(&[99u8; 32]);
+    let invalid_inputs = vec![invalid_leaf, circuit.root, circuit.nullifier];
+    let result = prover.verify_proof(&params, &proof, invalid_inputs);
 
-    // Should fail or produce an error
-    assert!(result.is_err() || !result.unwrap());
+    // Should fail verification
+    assert!(result.is_ok());
+    assert!(!result.unwrap());
 }
 
 #[test]
@@ -154,5 +153,47 @@ fn test_bytes_to_field_zero_bytes() {
     let zero_bytes = [0u8; 32];
     let field_element = bytes_to_field(&zero_bytes);
 
-    assert_eq!(field_element, pasta_curves::pallas::Base::zero());
+    assert_eq!(field_element, pallas::Base::zero());
+}
+
+#[test]
+fn test_circuit_with_siblings() {
+    // Create a test with actual siblings
+    let leaf_bytes = [42u8; 32];
+    let sibling_bytes = [43u8; 32];
+
+    let leaf = bytes_to_field(&leaf_bytes);
+    let sibling = bytes_to_field(&sibling_bytes);
+
+    // For the circuit constraint leaf + root = nullifier
+    // Root can be leaf + sibling for simplicity
+    let root = leaf + sibling;
+    let nullifier = leaf + root;
+
+    let circuit = SetMembershipCircuit {
+        leaf,
+        root,
+        nullifier,
+        siblings: vec![sibling],
+        leaf_index: 0,
+    };
+
+    let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
+    let public_inputs = vec![leaf, root, nullifier];
+
+    let mut prover = SetMembershipProver::new();
+    prover
+        .generate_and_cache_keys(&params)
+        .expect("Failed to generate keys");
+    let proof = prover.generate_proof(&params, circuit.clone(), public_inputs.clone());
+    assert!(
+        proof.is_ok(),
+        "Proof generation with siblings should succeed"
+    );
+
+    let verification_result = prover.verify_proof(&params, &proof.unwrap(), public_inputs);
+    assert!(
+        verification_result.unwrap(),
+        "Proof with siblings should be valid"
+    );
 }

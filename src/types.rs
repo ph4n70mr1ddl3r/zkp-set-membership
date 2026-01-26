@@ -1,15 +1,16 @@
 //! Type definitions for the ZKP set membership system.
 
 use anyhow::Result;
+use halo2_gadgets::poseidon::primitives::{
+    self as poseidon, ConstantLength, P128Pow5T3 as PoseidonSpec,
+};
+use pasta_curves::group::ff::PrimeField;
+use pasta_curves::pallas;
 use serde::{Deserialize, Serialize};
-use sha3::{Digest, Sha3_256};
 
 pub const HASH_SIZE: usize = 32;
 
 /// Verification key data for ZK proof verification.
-///
-/// Contains the cryptographic values needed to verify the proof,
-/// including the leaf, root, and nullifier hashes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VerificationKey {
     pub leaf: String,
@@ -18,9 +19,6 @@ pub struct VerificationKey {
 }
 
 /// Output structure for zero-knowledge proofs.
-///
-/// Contains all the information needed to verify a set membership proof,
-/// including the Merkle root, nullifier, ZK proof, and verification data.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ZKProofOutput {
     pub merkle_root: String,
@@ -34,18 +32,6 @@ pub struct ZKProofOutput {
 
 impl ZKProofOutput {
     /// Validates the proof output structure and cryptographic consistency.
-    ///
-    /// # Returns
-    /// `Ok(())` if the proof is valid, or an error if validation fails.
-    ///
-    /// # Validation Checks
-    /// - Ensures merkle_root, nullifier, and zkp_proof are non-empty
-    /// - Verifies that merkle_siblings contains at least one element
-    /// - Checks that the verification key contains the required 'leaf' field
-    /// - Validates that leaf and root are 32-byte hashes
-    /// - Verifies the nullifier was correctly derived from leaf and root
-    /// - Validates timestamp is reasonable (not in future)
-    /// - Validates leaf_index is non-negative
     pub fn validate(&self) -> Result<()> {
         if self.merkle_root.is_empty() {
             return Err(anyhow::anyhow!("Merkle root cannot be empty"));
@@ -77,7 +63,6 @@ impl ZKProofOutput {
         }
 
         let leaf_hex = &self.verification_key.leaf;
-
         let leaf_bytes = hex::decode(leaf_hex)
             .map_err(|e| anyhow::anyhow!("Invalid leaf hex '{}': {}", leaf_hex, e))?;
 
@@ -92,13 +77,12 @@ impl ZKProofOutput {
             return Err(anyhow::anyhow!("Root must be {} bytes", HASH_SIZE));
         }
 
+        // Verify nullifier matches expected value
         let expected_nullifier = compute_nullifier(&leaf_bytes, &root_bytes);
-        let expected_nullifier_hex = hex::encode(expected_nullifier);
-
-        if self.nullifier != expected_nullifier_hex {
+        if self.nullifier != hex::encode(expected_nullifier) {
             return Err(anyhow::anyhow!(
                 "Nullifier mismatch: expected {}, got {}",
-                expected_nullifier_hex,
+                hex::encode(expected_nullifier),
                 self.nullifier
             ));
         }
@@ -107,9 +91,54 @@ impl ZKProofOutput {
     }
 }
 
+/// Compute nullifier as H(leaf || root) using Poseidon hash
 pub fn compute_nullifier(leaf_bytes: &[u8], merkle_root: &[u8]) -> [u8; HASH_SIZE] {
-    let mut hasher = Sha3_256::new();
-    hasher.update(leaf_bytes);
-    hasher.update(merkle_root);
-    hasher.finalize().into()
+    // Convert bytes to field elements
+    let leaf_field = bytes_to_field(leaf_bytes);
+    let root_field = bytes_to_field(merkle_root);
+
+    // Compute Poseidon hash
+    let hash_field = poseidon_hash(leaf_field, root_field);
+
+    // Convert back to bytes
+    field_to_bytes(hash_field)
+}
+
+/// Compute nullifier directly from field elements
+pub fn compute_nullifier_from_fields(leaf: pallas::Base, root: pallas::Base) -> pallas::Base {
+    poseidon_hash(leaf, root)
+}
+
+/// Converts 32 bytes to a field element in the Pallas curve.
+fn bytes_to_field(bytes: &[u8]) -> pallas::Base {
+    // Take exactly 32 bytes or pad with zeros
+    let bytes_32: [u8; 32] = if bytes.len() >= 32 {
+        let mut arr = [0u8; 32];
+        arr.copy_from_slice(&bytes[..32]);
+        arr
+    } else {
+        let mut arr = [0u8; 32];
+        arr[..bytes.len()].copy_from_slice(bytes);
+        arr
+    };
+
+    // Use the same conversion as the circuit module
+    use crate::circuit::bytes_to_field as circuit_bytes_to_field;
+    circuit_bytes_to_field(&bytes_32)
+}
+
+/// Converts a field element back to 32 bytes
+fn field_to_bytes(field: pallas::Base) -> [u8; HASH_SIZE] {
+    // For the pasta curves, we can use the to_repr() method
+    // This converts the field element to its canonical byte representation
+    let mut bytes = [0u8; 32];
+    let repr = field.to_repr();
+    bytes.copy_from_slice(repr.as_ref());
+    bytes
+}
+
+/// Poseidon hash of two field elements
+fn poseidon_hash(left: pallas::Base, right: pallas::Base) -> pallas::Base {
+    let inputs = [left, right];
+    poseidon::Hash::<_, PoseidonSpec, ConstantLength<2>, 3, 2>::init().hash(inputs)
 }

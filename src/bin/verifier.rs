@@ -171,8 +171,10 @@ fn main() -> Result<()> {
     let public_inputs = vec![leaf_base, root_base, nullifier_base];
 
     let mut prover = SetMembershipProver::new();
-    let verification_result =
-        prover.verify_proof(&params, circuit, &proof.zkp_proof, public_inputs);
+    prover
+        .generate_and_cache_keys(&params)
+        .context("Failed to generate verification keys")?;
+    let verification_result = prover.verify_proof(&params, &proof.zkp_proof, public_inputs);
 
     match verification_result {
         Ok(_) => {

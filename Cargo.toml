@@ -26,6 +26,7 @@ sha3 = "0.10"
 ethers = "2.0"
 anyhow = "1.0"
 rand = "0.8"
+halo2_gadgets = "0.3"
 
 [dev-dependencies]
 halo2_proofs = { version = "0.3", features = ["dev-graph", "sanity-checks"] }

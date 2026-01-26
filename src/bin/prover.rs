@@ -9,7 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use zkp_set_membership::{
     circuit::{bytes_to_field, SetMembershipCircuit, SetMembershipProver},
     merkle::MerkleTree,
-    types::{compute_nullifier, VerificationKey, ZKProofOutput},
+    types::{compute_nullifier, compute_nullifier_from_fields, VerificationKey, ZKProofOutput},
     utils::validate_and_strip_hex,
     CIRCUIT_K,
 };
@@ -187,7 +187,9 @@ fn main() -> Result<()> {
     // Convert actual values to field elements
     let leaf_base = bytes_to_field(&leaf_hash);
     let root_base = bytes_to_field(&root_hash);
-    let nullifier_base = bytes_to_field(&nullifier);
+
+    // Compute nullifier directly from field elements to ensure consistency
+    let nullifier_base = compute_nullifier_from_fields(leaf_base, root_base);
 
     let circuit = SetMembershipCircuit {
         leaf: leaf_base,
