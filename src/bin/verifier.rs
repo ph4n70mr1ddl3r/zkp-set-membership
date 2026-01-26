@@ -6,6 +6,7 @@ use std::fs;
 use zkp_set_membership::{
     circuit::{bytes_to_field, SetMembershipCircuit, SetMembershipProver},
     types::ZKProofOutput,
+    CIRCUIT_K,
 };
 
 #[derive(Parser, Debug)]
@@ -61,8 +62,7 @@ fn main() -> Result<()> {
     }
 
     println!("Verifying ZK proof...");
-    let k = 11;
-    let params: Params<_> = Params::<vesta::Affine>::new(k);
+    let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
 
     // Parse hex strings from the proof
     let leaf_hex = proof.verification_key["leaf"].clone();

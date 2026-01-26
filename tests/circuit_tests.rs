@@ -1,6 +1,7 @@
 use halo2_proofs::poly::commitment::Params;
 use pasta_curves::vesta;
 use zkp_set_membership::circuit::{bytes_to_field, SetMembershipCircuit, SetMembershipProver};
+use zkp_set_membership::CIRCUIT_K;
 
 #[test]
 fn test_circuit_proof_generation() {
@@ -24,8 +25,7 @@ fn test_circuit_proof_generation() {
     };
 
     // Generate parameters
-    let k = 11;
-    let params: Params<_> = Params::<vesta::Affine>::new(k);
+    let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
 
     // Public inputs
     let public_inputs = vec![leaf, root, nullifier];
@@ -57,8 +57,7 @@ fn test_circuit_with_zero_values() {
     };
 
     // Generate parameters
-    let k = 11;
-    let params: Params<_> = Params::<vesta::Affine>::new(k);
+    let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
 
     // Public inputs
     let public_inputs = vec![
@@ -109,8 +108,7 @@ fn test_proof_with_invalid_public_inputs() {
         leaf_index: 0,
     };
 
-    let k = 11;
-    let params: Params<_> = Params::<vesta::Affine>::new(k);
+    let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
 
     // Generate proof with original inputs
     let public_inputs_original = vec![leaf, root, nullifier];

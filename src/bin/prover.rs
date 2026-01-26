@@ -12,6 +12,8 @@ use zkp_set_membership::{
     circuit::{bytes_to_field, SetMembershipCircuit, SetMembershipProver},
     merkle::MerkleTree,
     types::ZKProofOutput,
+    utils::validate_and_strip_hex,
+    CIRCUIT_K,
 };
 
 #[derive(Parser, Debug)]
@@ -28,25 +30,9 @@ struct Args {
 }
 
 fn address_to_bytes(address: &str) -> Result<[u8; 32]> {
-    let address = address
-        .trim()
-        .strip_prefix("0x")
-        .or_else(|| address.trim().strip_prefix("0X"))
-        .unwrap_or_else(|| address.trim());
+    let address_hex = validate_and_strip_hex(address, 40)?;
 
-    if address.len() != 40 {
-        return Err(anyhow::anyhow!(
-            "Invalid Ethereum address: must be 20 bytes (40 hex chars)"
-        ));
-    }
-
-    if !address.chars().all(|c| c.is_ascii_hexdigit()) {
-        return Err(anyhow::anyhow!(
-            "Invalid Ethereum address: contains non-hex characters"
-        ));
-    }
-
-    let bytes = hex::decode(address).context("Failed to decode address from hex")?;
+    let bytes = hex::decode(address_hex).context("Failed to decode address from hex")?;
 
     if bytes.len() != 20 {
         return Err(anyhow::anyhow!("Address bytes length mismatch"));
@@ -58,30 +44,13 @@ fn address_to_bytes(address: &str) -> Result<[u8; 32]> {
 }
 
 fn validate_private_key(private_key: &str) -> Result<()> {
-    let key = private_key
-        .trim()
-        .strip_prefix("0x")
-        .or_else(|| private_key.trim().strip_prefix("0X"))
-        .unwrap_or_else(|| private_key.trim());
-
-    if key.len() != 64 {
-        return Err(anyhow::anyhow!(
-            "Invalid private key: must be 32 bytes (64 hex chars)"
-        ));
-    }
-
-    if !key.chars().all(|c| c.is_ascii_hexdigit()) {
-        return Err(anyhow::anyhow!(
-            "Invalid private key: contains non-hex characters"
-        ));
-    }
-
+    validate_and_strip_hex(private_key, 64)?;
     Ok(())
 }
 
-fn compute_nullifier(public_key: &str, merkle_root: &[u8; 32]) -> [u8; 32] {
+fn compute_nullifier(address: &str, merkle_root: &[u8; 32]) -> [u8; 32] {
     let mut hasher = Sha3_256::new();
-    hasher.update(public_key.as_bytes());
+    hasher.update(address.as_bytes());
     hasher.update(merkle_root);
     hasher.finalize().into()
 }
@@ -194,8 +163,7 @@ fn main() -> Result<()> {
     let public_inputs = vec![leaf_base, root_base, nullifier_base];
 
     println!("Generating ZK proof (this may take a while)...");
-    let k = 11;
-    let params: Params<_> = Params::<vesta::Affine>::new(k);
+    let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
 
     let zkp_proof = SetMembershipProver::generate_proof(&params, circuit, public_inputs)
         .context("Failed to create proof")?;

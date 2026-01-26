@@ -1,4 +1,13 @@
 // ZK-SNARK circuit for set membership proof.
+//
+// TODO: The circuit currently lacks proper cryptographic constraints.
+// The following should be implemented:
+// 1. Merkle path verification using Poseidon hash in the circuit
+// 2. Constraint enforcement that leaf + siblings produces the root
+// 3. Nullifier derivation constraint: nullifier = H(public_key || merkle_root)
+//
+// Currently, the circuit only assigns values without enforcing constraints,
+// which means proofs can be generated for any values without validation.
 
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner, Value},
@@ -116,7 +125,7 @@ impl SetMembershipProver {
         let pk = keygen_pk(params, vk, &circuit)?;
 
         let mut transcript = Blake2bWrite::init(vec![]);
-        let mut rng = rand::rngs::OsRng;
+        let mut rng = rand::rngs::ThreadRng::default();
 
         let public_inputs_slice: &[&[&[pallas::Base]]] = &[&[&public_inputs]];
         create_proof(
