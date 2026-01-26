@@ -24,6 +24,8 @@ pub struct SetMembershipCircuit {
     pub leaf: pallas::Base,
     pub root: pallas::Base,
     pub nullifier: pallas::Base,
+    pub siblings: Vec<pallas::Base>,
+    pub leaf_index: usize,
 }
 
 impl Circuit<pallas::Base> for SetMembershipCircuit {
@@ -71,17 +73,40 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
     }
 }
 
+/// Converts 32 bytes to a field element in the Pallas curve.
+///
+/// This function interprets the 32-byte input as a base-256 number
+/// and reduces it modulo the field order.
+///
+/// # Arguments
+/// * `bytes` - A 32-byte slice to convert
+///
+/// # Returns
+/// A Pallas field element representing the input bytes
 pub fn bytes_to_field(bytes: &[u8; 32]) -> pallas::Base {
-    let mut value = 0u64;
-    for (i, &byte) in bytes.iter().take(8).enumerate() {
-        value |= (byte as u64) << (i * 8);
+    let mut value = pallas::Base::zero();
+    let base = pallas::Base::from(256u64);
+
+    for &byte in bytes.iter() {
+        value = value * base + pallas::Base::from(byte as u64);
     }
-    pallas::Base::from(value)
+
+    value
 }
 
+/// Prover utility for generating and verifying set membership proofs.
 pub struct SetMembershipProver;
 
 impl SetMembershipProver {
+    /// Generates a zero-knowledge proof for set membership.
+    ///
+    /// # Arguments
+    /// * `params` - The proving system parameters
+    /// * `circuit` - The circuit instance with witnesses
+    /// * `public_inputs` - The public inputs to the circuit
+    ///
+    /// # Returns
+    /// A serialized proof as bytes
     pub fn generate_proof(
         params: &Params<vesta::Affine>,
         circuit: SetMembershipCircuit,
@@ -106,6 +131,17 @@ impl SetMembershipProver {
         Ok(transcript.finalize())
     }
 
+    /// Verifies a zero-knowledge proof for set membership.
+    ///
+    /// # Arguments
+    /// * `params` - The proving system parameters
+    /// * `circuit` - The circuit instance (used for verification key)
+    /// * `proof` - The serialized proof bytes
+    /// * `public_inputs` - The public inputs to verify against
+    ///
+    /// # Returns
+    /// `Ok(true)` if the proof is valid, `Ok(false)` if invalid,
+    /// or an error if verification fails unexpectedly
     pub fn verify_proof(
         params: &Params<vesta::Affine>,
         circuit: SetMembershipCircuit,

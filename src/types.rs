@@ -9,6 +9,7 @@ pub struct ZKProofOutput {
     pub verification_key: HashMap<String, String>,
     pub leaf_index: usize,
     pub timestamp: u64,
+    pub merkle_siblings: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

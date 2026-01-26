@@ -76,7 +76,7 @@ impl MerkleTree {
         }
 
         let mut siblings = Vec::new();
-        let mut level = self.leaves.clone();
+        let mut level: Vec<[u8; 32]> = self.leaves.clone();
         let mut index = leaf_index;
 
         while level.len() > 1 {

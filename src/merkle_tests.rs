@@ -65,4 +65,59 @@ mod tests {
         assert!(proof.is_some());
         assert!(tree.verify_proof(&proof.unwrap()));
     }
+
+    #[test]
+    fn test_merkle_proof_with_invalid_index() {
+        let leaves = vec![[1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32]];
+
+        let tree = MerkleTree::new(leaves);
+        let proof = tree.generate_proof(999);
+
+        // Should return None for invalid index
+        assert!(proof.is_none());
+    }
+
+    #[test]
+    fn test_merkle_proof_with_tampered_root() {
+        let leaves = vec![[1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32]];
+
+        let tree = MerkleTree::new(leaves);
+        let mut proof = tree.generate_proof(0).unwrap();
+
+        // Tamper with the root
+        proof.root = [0xFFu8; 32];
+
+        // Verification should fail
+        assert!(!tree.verify_proof(&proof));
+    }
+
+    #[test]
+    fn test_merkle_proof_with_tampered_leaf() {
+        let leaves = vec![[1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32]];
+
+        let tree = MerkleTree::new(leaves);
+        let mut proof = tree.generate_proof(0).unwrap();
+
+        // Tamper with the leaf
+        proof.leaf = [0xFFu8; 32];
+
+        // Verification should fail
+        assert!(!tree.verify_proof(&proof));
+    }
+
+    #[test]
+    fn test_merkle_proof_with_tampered_siblings() {
+        let leaves = vec![[1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32]];
+
+        let tree = MerkleTree::new(leaves);
+        let mut proof = tree.generate_proof(0).unwrap();
+
+        // Tamper with the siblings
+        if !proof.siblings.is_empty() {
+            proof.siblings[0] = [0xFFu8; 32];
+        }
+
+        // Verification should fail
+        assert!(!tree.verify_proof(&proof));
+    }
 }

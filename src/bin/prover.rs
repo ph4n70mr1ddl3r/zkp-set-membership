@@ -31,10 +31,19 @@ fn address_to_bytes(address: &str) -> Result<[u8; 32]> {
     let address = address.trim();
     let address = address.trim_start_matches("0x").trim_start_matches("0X");
 
-    // Skip length check for test - we use known valid addresses
+    if address.len() != 40 {
+        return Err(anyhow::anyhow!(
+            "Invalid Ethereum address: must be 20 bytes (40 hex chars)"
+        ));
+    }
+
+    if !address.chars().all(|c| c.is_ascii_hexdigit()) {
+        return Err(anyhow::anyhow!(
+            "Invalid Ethereum address: contains non-hex characters"
+        ));
+    }
 
     let bytes = hex::decode(address).context("Failed to decode address from hex")?;
-    eprintln!("DEBUG: Decoded {} hex bytes", bytes.len());
 
     if bytes.len() != 20 {
         return Err(anyhow::anyhow!("Address bytes length mismatch"));
@@ -45,9 +54,30 @@ fn address_to_bytes(address: &str) -> Result<[u8; 32]> {
     Ok(full_bytes)
 }
 
-fn compute_nullifier(private_key: &str, merkle_root: &[u8; 32]) -> [u8; 32] {
+fn validate_private_key(private_key: &str) -> Result<()> {
+    let key = private_key
+        .trim()
+        .trim_start_matches("0x")
+        .trim_start_matches("0X");
+
+    if key.len() != 64 {
+        return Err(anyhow::anyhow!(
+            "Invalid private key: must be 32 bytes (64 hex chars)"
+        ));
+    }
+
+    if !key.chars().all(|c| c.is_ascii_hexdigit()) {
+        return Err(anyhow::anyhow!(
+            "Invalid private key: contains non-hex characters"
+        ));
+    }
+
+    Ok(())
+}
+
+fn compute_nullifier(public_key: &str, merkle_root: &[u8; 32]) -> [u8; 32] {
     let mut hasher = Sha3_256::new();
-    hasher.update(private_key.as_bytes());
+    hasher.update(public_key.as_bytes());
     hasher.update(merkle_root);
     hasher.finalize().into()
 }
@@ -56,6 +86,19 @@ fn main() -> Result<()> {
     let args = Args::parse();
 
     println!("Loading accounts from: {:?}", args.accounts_file);
+
+    let metadata =
+        fs::metadata(&args.accounts_file).context("Failed to read accounts file metadata")?;
+
+    const MAX_FILE_SIZE: u64 = 100 * 1024 * 1024; // 100MB
+    if metadata.len() > MAX_FILE_SIZE {
+        return Err(anyhow::anyhow!(
+            "Accounts file too large: {} bytes (max {} bytes)",
+            metadata.len(),
+            MAX_FILE_SIZE
+        ));
+    }
+
     let accounts_content =
         fs::read_to_string(&args.accounts_file).context("Failed to read accounts file")?;
 
@@ -65,11 +108,20 @@ fn main() -> Result<()> {
         .map(|line| line.trim().to_string())
         .collect();
 
-    println!("Loaded {} addresses", addresses.len());
-    eprintln!(
-        "DEBUG: First address in file: '{}'",
-        addresses.first().unwrap_or(&"".to_string())
+    if addresses.is_empty() {
+        return Err(anyhow::anyhow!(
+            "No valid addresses found in accounts file '{}'",
+            args.accounts_file.display()
+        ));
+    }
+
+    println!(
+        "Loaded {} addresses from {}",
+        addresses.len(),
+        args.accounts_file.display()
     );
+    println!("Validating private key...");
+    validate_private_key(&args.private_key)?;
 
     println!("Parsing private key...");
     let wallet: LocalWallet = args
@@ -79,10 +131,6 @@ fn main() -> Result<()> {
     let prover_address = wallet.address();
     let prover_address_str = format!("{:?}", prover_address);
     println!("Prover address: {}", prover_address_str);
-    eprintln!(
-        "DEBUG: Prover address lower: '{}'",
-        prover_address_str.to_lowercase().replace("0x", "")
-    );
 
     let mut leaf_hashes = Vec::new();
     let mut leaf_index = None;
@@ -96,16 +144,16 @@ fn main() -> Result<()> {
         let prover_normalized = prover_address_str.to_lowercase().replace("0x", "");
 
         if addr_normalized == prover_normalized {
-            eprintln!(
-                "DEBUG: Exact match! Index {} found address '{}' matching prover '{}'",
-                i, address, prover_address_str
-            );
             leaf_index = Some(i);
             println!("Found prover address at index {}", i);
         }
     }
 
-    let leaf_index = leaf_index.context("Prover address not found in accounts list")?;
+    let leaf_index = leaf_index.context(format!(
+        "Prover address '{}' not found in accounts file '{}'. Make sure your private key corresponds to an address in the set.",
+        prover_address_str,
+        args.accounts_file.display()
+    ))?;
 
     println!("Building Merkle tree...");
     let merkle_tree = MerkleTree::new(leaf_hashes.clone());
@@ -120,7 +168,7 @@ fn main() -> Result<()> {
     let root_hash = merkle_proof.root;
 
     println!("Computing deterministic nullifier...");
-    let nullifier = compute_nullifier(&args.private_key, &root_hash);
+    let nullifier = compute_nullifier(&prover_address_str, &root_hash);
     println!("Nullifier: {}", hex::encode(nullifier));
 
     println!("Creating ZK-SNARK circuit...");
@@ -134,6 +182,12 @@ fn main() -> Result<()> {
         leaf: leaf_base,
         root: root_base,
         nullifier: nullifier_base,
+        siblings: merkle_proof
+            .siblings
+            .iter()
+            .map(|s| bytes_to_field(s))
+            .collect(),
+        leaf_index,
     };
 
     // Public inputs for verification
@@ -153,6 +207,12 @@ fn main() -> Result<()> {
     vk_map.insert("root".to_string(), hex::encode(root_hash));
     vk_map.insert("nullifier".to_string(), hex::encode(nullifier));
 
+    let merkle_siblings: Vec<String> = merkle_proof
+        .siblings
+        .iter()
+        .map(|s| hex::encode(s))
+        .collect();
+
     let output = ZKProofOutput {
         merkle_root: hex::encode(merkle_tree.root),
         nullifier: hex::encode(nullifier),
@@ -163,6 +223,7 @@ fn main() -> Result<()> {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs(),
+        merkle_siblings,
     };
 
     println!("Writing proof to: {:?}", args.output);
