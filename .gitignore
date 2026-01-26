@@ -1,0 +1,30 @@
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# Test artifacts
+test_accounts*.txt
+test_private_keys.txt
+integration_test*.txt
+test_proofs/
+proof*.json
+create_test_data.rs
+gen_accounts.py
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.Python
+venv/
