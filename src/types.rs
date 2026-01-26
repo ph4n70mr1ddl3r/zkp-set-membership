@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use sha3::{Digest, Sha3_256};
 use std::collections::HashMap;
 
+pub const HASH_SIZE: usize = 32;
+
 /// Output structure for zero-knowledge proofs.
 ///
 /// Contains all the information needed to verify a set membership proof,
@@ -35,29 +37,41 @@ impl ZKProofOutput {
             return Err(anyhow::anyhow!("Merkle siblings cannot be empty"));
         }
 
-        if let Some(leaf_hex) = self.verification_key.get("leaf") {
-            let leaf_bytes =
-                hex::decode(leaf_hex).map_err(|_| anyhow::anyhow!("Invalid leaf hex"))?;
-            let root_bytes = hex::decode(&self.merkle_root)
-                .map_err(|_| anyhow::anyhow!("Invalid merkle root hex"))?;
+        let leaf_hex = self
+            .verification_key
+            .get("leaf")
+            .ok_or_else(|| anyhow::anyhow!("Verification key missing 'leaf' field"))?;
 
-            let expected_nullifier = compute_nullifier(&leaf_bytes, &root_bytes);
-            let expected_nullifier_hex = hex::encode(expected_nullifier);
+        let leaf_bytes =
+            hex::decode(leaf_hex).map_err(|e| anyhow::anyhow!("Invalid leaf hex: {}", e))?;
 
-            if self.nullifier != expected_nullifier_hex {
-                return Err(anyhow::anyhow!(
-                    "Nullifier mismatch: expected {}, got {}",
-                    expected_nullifier_hex,
-                    self.nullifier
-                ));
-            }
+        if leaf_bytes.len() != HASH_SIZE {
+            return Err(anyhow::anyhow!("Leaf must be {} bytes", HASH_SIZE));
+        }
+
+        let root_bytes = hex::decode(&self.merkle_root)
+            .map_err(|e| anyhow::anyhow!("Invalid merkle root hex: {}", e))?;
+
+        if root_bytes.len() != HASH_SIZE {
+            return Err(anyhow::anyhow!("Root must be {} bytes", HASH_SIZE));
+        }
+
+        let expected_nullifier = compute_nullifier(&leaf_bytes, &root_bytes);
+        let expected_nullifier_hex = hex::encode(expected_nullifier);
+
+        if self.nullifier != expected_nullifier_hex {
+            return Err(anyhow::anyhow!(
+                "Nullifier mismatch: expected {}, got {}",
+                expected_nullifier_hex,
+                self.nullifier
+            ));
         }
 
         Ok(())
     }
 }
 
-fn compute_nullifier(leaf_bytes: &[u8], merkle_root: &[u8]) -> [u8; 32] {
+fn compute_nullifier(leaf_bytes: &[u8], merkle_root: &[u8]) -> [u8; HASH_SIZE] {
     let mut hasher = Sha3_256::new();
     hasher.update(leaf_bytes);
     hasher.update(merkle_root);

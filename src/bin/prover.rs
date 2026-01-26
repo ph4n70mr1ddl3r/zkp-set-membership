@@ -110,20 +110,16 @@ fn main() -> Result<()> {
 
     let mut leaf_hashes = Vec::new();
     let mut leaf_index = None;
-    let mut address_map: std::collections::HashMap<String, usize> =
-        std::collections::HashMap::new();
 
     for (i, address) in addresses.iter().enumerate() {
         let address_bytes = address_to_bytes(address)?;
         leaf_hashes.push(address_bytes);
 
         let addr_normalized = validate_and_strip_hex(address, 40)?.to_lowercase();
-        address_map.insert(addr_normalized.clone(), i);
-    }
-
-    if let Some(&index) = address_map.get(&prover_normalized) {
-        leaf_index = Some(index);
-        println!("Found prover address at index {}", index);
+        if addr_normalized == prover_normalized {
+            leaf_index = Some(i);
+            println!("Found prover address at index {}", i);
+        }
     }
 
     let leaf_index = leaf_index.context(format!(

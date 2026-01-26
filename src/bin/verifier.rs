@@ -1,17 +1,16 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use halo2_proofs::poly::commitment::Params;
-use pasta_curves::{pallas, vesta};
+use pasta_curves::vesta;
 use std::fs;
 use zkp_set_membership::{
     circuit::{bytes_to_field, SetMembershipCircuit, SetMembershipProver},
-    types::ZKProofOutput,
+    types::{ZKProofOutput, HASH_SIZE},
     CIRCUIT_K,
 };
 
-const MAX_PROOF_FILE_SIZE: u64 = 1024 * 1024; // 1MB
-const MAX_ZK_PROOF_SIZE: usize = 512 * 1024; // 512KB
-const HASH_SIZE: usize = 32;
+const MAX_PROOF_FILE_SIZE: u64 = 1024 * 1024;
+const MAX_ZK_PROOF_SIZE: usize = 512 * 1024;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -105,27 +104,15 @@ fn main() -> Result<()> {
     let root_array = bytes_to_fixed_array(&root_bytes, "Root")?;
     let nullifier_array = bytes_to_fixed_array(&nullifier_bytes, "Nullifier")?;
 
-    // Convert to field elements
     let leaf_base = bytes_to_field(&leaf_array);
     let root_base = bytes_to_field(&root_array);
     let nullifier_base = bytes_to_field(&nullifier_array);
-
-    let siblings: Vec<pallas::Base> = proof
-        .merkle_siblings
-        .iter()
-        .map(|s| {
-            let bytes = hex::decode(s)
-                .context(format!("Failed to decode Merkle sibling '{}' from hex", s))?;
-            let array = bytes_to_fixed_array(&bytes, "Merkle sibling")?;
-            Ok(bytes_to_field(&array))
-        })
-        .collect::<Result<Vec<_>>>()?;
 
     let circuit = SetMembershipCircuit {
         leaf: leaf_base,
         root: root_base,
         nullifier: nullifier_base,
-        siblings,
+        siblings: vec![],
         leaf_index: proof.leaf_index,
     };
 
