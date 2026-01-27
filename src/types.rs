@@ -42,9 +42,6 @@ impl ZKProofOutput {
         if self.zkp_proof.is_empty() {
             return Err(anyhow::anyhow!("ZK proof cannot be empty"));
         }
-        if self.merkle_siblings.is_empty() {
-            return Err(anyhow::anyhow!("Merkle siblings cannot be empty"));
-        }
 
         let current_timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)

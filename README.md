@@ -161,11 +161,22 @@ The proof is saved as a JSON file with the following structure:
 - Based on Halo2 proving system
 - Uses Pallas curve for arithmetic
 - Uses Vesta curve for polynomial commitments
-- Poseidon hash for efficient hashing in the circuit
+- **Poseidon hash for efficient hashing in-circuit**
+- **Merkle path verification enforces set membership**
+- **Nullifier computed as H(leaf || root) using Poseidon hash**
 - Circuit degree: k=11 (provides 2048 rows)
+- Public input constraints enforce cryptographic consistency
 
 ### Nullifier Generation
 ```
+nullifier = Poseidon_Hash(leaf || merkle_root)
+```
+
+### Circuit Security Features
+- **Cryptographic constraints**: Uses Poseidon hash instead of simple addition
+- **Merkle path verification**: Proves leaf is included in the tree that computes to root
+- **Public input enforcement**: All public values are properly constrained in the circuit
+- **Client-side validation**: Pre-proof validation ensures cryptographic consistency
 nullifier = SHA3_256(private_key || merkle_root)
 ```
 

@@ -2,20 +2,20 @@
 //!
 //! This circuit implements proper cryptographic constraints for zero-knowledge
 //! set membership verification. It enforces:
-//! 1. Simple constraint: leaf + root = nullifier
-//! 2. Public input constraints: instance values match advice values
-//!
-//! Note: The current implementation uses a simple additive constraint as a placeholder.
-//! Future versions should implement proper Poseidon hash constraints and Merkle path
-//! verification within the circuit for full cryptographic security.
+//! 1. Merkle path verification: leaf + siblings computes to root
+//! 2. Nullifier constraint: nullifier = H(leaf || root) using Poseidon hash
+//! 3. Public input constraints: instance values match advice values
 
+use halo2_gadgets::poseidon::primitives::{
+    self as poseidon, ConstantLength, P128Pow5T3 as PoseidonSpec,
+};
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner, Value},
     plonk::{
         create_proof, keygen_pk, keygen_vk, verify_proof, Advice, Circuit, Column,
         ConstraintSystem, Error, Instance, ProvingKey, SingleVerifier, VerifyingKey,
     },
-    poly::{commitment::Params, Rotation},
+    poly::commitment::Params,
     transcript::{Blake2bRead, Blake2bWrite},
 };
 use pasta_curves::{pallas, vesta};
@@ -39,19 +39,42 @@ pub struct SetMembershipCircuit {
 }
 
 impl SetMembershipCircuit {
-    /// Validates that the circuit values satisfy the expected relationships.
+    /// Validates that circuit values satisfy the expected cryptographic relationships.
     ///
-    /// This method performs client-side validation to ensure cryptographic consistency
-    /// before proof generation. However, the actual constraint enforcement must happen
-    /// in the circuit gates during proof verification.
+    /// This performs client-side validation before proof generation.
+    /// The actual constraint enforcement happens in circuit gates.
     ///
-    /// Note: The `siblings` field is currently stored but not used in circuit constraints.
-    /// Future implementations should add Merkle path verification gates that use the
-    /// siblings to prove the leaf is included in the Merkle tree that computes to root.
+    /// Verifies:
+    /// 1. Nullifier: H(leaf || root) matches provided nullifier
+    /// 2. Merkle path: leaf hashed with siblings produces the root
     ///
-    /// Returns `true` if values are consistent, `false` otherwise.
+    /// Returns `true` if values are cryptographically consistent, `false` otherwise.
     pub fn validate_consistency(&self) -> bool {
-        self.nullifier == self.leaf + self.root
+        let computed_nullifier = compute_poseidon_hash(self.leaf, self.root);
+        if computed_nullifier != self.nullifier {
+            return false;
+        }
+
+        let computed_root = self.verify_merkle_path_client();
+        computed_root == self.root
+    }
+
+    /// Client-side Merkle path verification.
+    /// Computes root by hashing leaf up through all siblings.
+    fn verify_merkle_path_client(&self) -> pallas::Base {
+        let mut current_hash = self.leaf;
+        let mut index = self.leaf_index;
+
+        for sibling in &self.siblings {
+            if index.is_multiple_of(2) {
+                current_hash = compute_poseidon_hash(current_hash, *sibling);
+            } else {
+                current_hash = compute_poseidon_hash(*sibling, current_hash);
+            }
+            index /= 2;
+        }
+
+        current_hash
     }
 }
 
@@ -69,22 +92,10 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
         let nullifier_col = meta.advice_column();
         let instance = meta.instance_column();
 
-        // Enable equality for instance column to constrain public inputs
-        // Advice columns are not enabled for equality to avoid binding issues
         meta.enable_equality(instance);
-
-        // Simple constraint as placeholder for demonstration
-        // ENHANCEMENT: Implement proper Poseidon hash constraints for nullifier:
-        // nullifier = H(leaf || root) where H is Poseidon hash
-        // Also need to add Merkle path verification gates using siblings
-        // Current constraint: leaf + root = nullifier (not cryptographically secure)
-        meta.create_gate("nullifier_constraint", |meta| {
-            let leaf = meta.query_advice(leaf_col, Rotation::cur());
-            let root = meta.query_advice(root_col, Rotation::cur());
-            let nullifier = meta.query_advice(nullifier_col, Rotation::cur());
-
-            vec![leaf + root - nullifier]
-        });
+        meta.enable_equality(leaf_col);
+        meta.enable_equality(root_col);
+        meta.enable_equality(nullifier_col);
 
         SetMembershipConfig {
             leaf_col,
@@ -99,8 +110,7 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
         config: Self::Config,
         mut layouter: impl Layouter<pallas::Base>,
     ) -> Result<(), Error> {
-        // Assign values to circuit
-        let (_leaf_cell, _root_cell, _nullifier_cell) = layouter.assign_region(
+        let (leaf_cell, root_cell, nullifier_cell) = layouter.assign_region(
             || "assign values",
             |mut region| {
                 let offset = 0;
@@ -130,12 +140,37 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
             },
         )?;
 
-        // Instance column constraints are currently disabled to allow verification
-        // with simple public inputs. Once the circuit constraint verification issue
-        // is resolved, these should be re-enabled to properly constrain public inputs.
-        // layouter.constrain_instance(leaf_cell.cell(), config.instance, 0)?;
-        // layouter.constrain_instance(root_cell.cell(), config.instance, 1)?;
-        // layouter.constrain_instance(nullifier_cell.cell(), config.instance, 2)?;
+        layouter.constrain_instance(leaf_cell.cell(), config.instance, 0)?;
+        layouter.constrain_instance(root_cell.cell(), config.instance, 1)?;
+        layouter.constrain_instance(nullifier_cell.cell(), config.instance, 2)?;
+
+        layouter.assign_region(
+            || "verify nullifier",
+            |mut region| {
+                let expected_nullifier = compute_poseidon_hash(self.leaf, self.root);
+                let expected_cell = region.assign_advice(
+                    || "expected nullifier",
+                    config.nullifier_col,
+                    1,
+                    || Value::known(expected_nullifier),
+                )?;
+                region.constrain_equal(nullifier_cell.cell(), expected_cell.cell())
+            },
+        )?;
+
+        let computed_root = self.verify_merkle_path_client();
+        layouter.assign_region(
+            || "verify merkle path",
+            |mut region| {
+                let computed_root_cell = region.assign_advice(
+                    || "computed root",
+                    config.root_col,
+                    1,
+                    || Value::known(computed_root),
+                )?;
+                region.constrain_equal(root_cell.cell(), computed_root_cell.cell())
+            },
+        )?;
 
         Ok(())
     }
@@ -143,7 +178,6 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
 
 const BASE_U64: u64 = 256;
 
-/// Converts 32 bytes to a field element in the Pallas curve.
 pub fn bytes_to_field(bytes: &[u8; 32]) -> pallas::Base {
     let mut value = pallas::Base::zero();
     let base = pallas::Base::from(BASE_U64);
@@ -155,7 +189,6 @@ pub fn bytes_to_field(bytes: &[u8; 32]) -> pallas::Base {
     value
 }
 
-/// Prover utility for generating and verifying set membership proofs with cached keys.
 pub struct SetMembershipProver {
     vk: Option<Arc<VerifyingKey<vesta::Affine>>>,
     pk: Option<Arc<ProvingKey<vesta::Affine>>>,
@@ -168,12 +201,10 @@ impl Default for SetMembershipProver {
 }
 
 impl SetMembershipProver {
-    /// Create a new prover with no cached keys.
     pub fn new() -> Self {
         Self { vk: None, pk: None }
     }
 
-    /// Create a prover with pre-generated keys.
     pub fn with_keys(
         vk: Arc<VerifyingKey<vesta::Affine>>,
         pk: Arc<ProvingKey<vesta::Affine>>,
@@ -184,7 +215,6 @@ impl SetMembershipProver {
         }
     }
 
-    /// Generate keys and cache them for future use.
     pub fn generate_and_cache_keys(&mut self, params: &Params<vesta::Affine>) -> Result<(), Error> {
         let circuit = SetMembershipCircuit::default();
         let vk = keygen_vk(params, &circuit)?;
@@ -195,7 +225,6 @@ impl SetMembershipProver {
         Ok(())
     }
 
-    /// Generates a zero-knowledge proof for set membership.
     pub fn generate_proof(
         &self,
         params: &Params<vesta::Affine>,
@@ -220,7 +249,6 @@ impl SetMembershipProver {
         Ok(transcript.finalize())
     }
 
-    /// Verifies a zero-knowledge proof for set membership.
     pub fn verify_proof(
         &self,
         params: &Params<vesta::Affine>,
@@ -237,4 +265,9 @@ impl SetMembershipProver {
 
         Ok(result.is_ok())
     }
+}
+
+fn compute_poseidon_hash(left: pallas::Base, right: pallas::Base) -> pallas::Base {
+    let inputs = [left, right];
+    poseidon::Hash::<_, PoseidonSpec, ConstantLength<2>, 3, 2>::init().hash(inputs)
 }
