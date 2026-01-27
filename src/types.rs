@@ -2,6 +2,7 @@
 
 use crate::utils::{bytes_to_field, field_to_bytes, poseidon_hash};
 use anyhow::{Context, Result};
+use log::debug;
 use pasta_curves::pallas;
 use serde::{Deserialize, Serialize};
 
@@ -41,6 +42,13 @@ impl ZKProofOutput {
     /// - Invalid hex encoding
     /// - Incorrect byte lengths
     pub fn validate(&self) -> Result<()> {
+        debug!("Starting proof output validation");
+        debug!("Merkle root length: {}", self.merkle_root.len());
+        debug!("Nullifier length: {}", self.nullifier.len());
+        debug!("ZK proof size: {} bytes", self.zkp_proof.len());
+        debug!("Leaf index: {}", self.leaf_index);
+        debug!("Timestamp: {}", self.timestamp);
+
         if self.merkle_root.is_empty() {
             return Err(anyhow::anyhow!(
                 "Merkle root cannot be empty. Expected a 32-byte hex string."
@@ -61,6 +69,7 @@ impl ZKProofOutput {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs())
             .unwrap_or(0);
+        debug!("Current timestamp: {}", current_timestamp);
 
         if self.timestamp > current_timestamp + Self::TIMESTAMP_TOLERANCE_SECS {
             return Err(anyhow::anyhow!(

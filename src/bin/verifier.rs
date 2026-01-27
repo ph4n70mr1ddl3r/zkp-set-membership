@@ -85,9 +85,11 @@ fn main() -> Result<()> {
     }
 
     info!("Loading proof from: {}", args.proof_file);
+    debug!("Starting proof file validation");
     println!("Loading proof from: {}", args.proof_file);
 
     let metadata = fs::metadata(&args.proof_file).context("Failed to read proof file metadata")?;
+    debug!("Proof file size: {} bytes", metadata.len());
 
     let max_proof_file_size = get_max_proof_file_size();
     if metadata.len() > max_proof_file_size {

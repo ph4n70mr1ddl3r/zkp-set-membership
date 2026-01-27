@@ -100,12 +100,14 @@ fn main() -> Result<()> {
     };
 
     info!("Loading accounts from: {:?}", args.accounts_file);
+    debug!("Starting accounts file read operation");
     println!("Loading accounts from: {:?}", args.accounts_file);
 
     let accounts_content =
         fs::read_to_string(&args.accounts_file).context("Failed to read accounts file")?;
 
     let content_size = accounts_content.len() as u64;
+    debug!("Accounts file size: {} bytes", content_size);
     let max_accounts_size = get_max_accounts_file_size();
     if content_size > max_accounts_size {
         return Err(anyhow::anyhow!(
