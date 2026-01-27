@@ -3,8 +3,7 @@ use clap::Parser;
 use halo2_proofs::poly::commitment::Params;
 use log::{debug, error, info};
 use pasta_curves::vesta;
-use std::fs::{self, File, OpenOptions};
-use std::io::{BufRead, BufReader, Write};
+use std::fs;
 use std::path::Path;
 use zkp_set_membership::{
     circuit::SetMembershipProver,
