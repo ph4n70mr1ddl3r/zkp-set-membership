@@ -41,7 +41,7 @@ struct Args {
     accounts_file: PathBuf,
 
     #[arg(short, long)]
-    private_key: String,
+    private_key: Option<String>,
 
     #[arg(short, long, default_value = "proof.json")]
     output: PathBuf,
@@ -85,6 +85,21 @@ fn validate_private_key(private_key: &str) -> Result<()> {
 fn main() -> Result<()> {
     let args = Args::parse();
 
+    let private_key = match args.private_key {
+        Some(key) => key,
+        None => match std::env::var("ZKP_PRIVATE_KEY") {
+            Ok(key) => {
+                eprintln!("Using private key from ZKP_PRIVATE_KEY environment variable");
+                key
+            }
+            Err(_) => {
+                return Err(anyhow::anyhow!(
+                    "Private key must be provided via --private-key argument or ZKP_PRIVATE_KEY environment variable"
+                ));
+            }
+        },
+    };
+
     println!("Loading accounts from: {:?}", args.accounts_file);
 
     let accounts_content =
@@ -120,13 +135,10 @@ fn main() -> Result<()> {
         args.accounts_file.display()
     );
     println!("Validating private key...");
-    validate_private_key(&args.private_key)?;
+    validate_private_key(&private_key)?;
 
     println!("Parsing private key...");
-    let wallet: LocalWallet = args
-        .private_key
-        .parse()
-        .context("Failed to parse private key")?;
+    let wallet: LocalWallet = private_key.parse().context("Failed to parse private key")?;
     let prover_address = wallet.address();
     let prover_address_str = format!("{:x}", prover_address);
     println!("Prover address: 0x{}", prover_address_str);
