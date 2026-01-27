@@ -13,13 +13,13 @@ use zkp_set_membership::{
 
 /// Default maximum allowed size for the proof JSON file (1MB)
 /// Prevents memory exhaustion from excessively large proof files
-/// Can be overridden via ZKP_MAX_PROOF_FILE_SIZE environment variable
+/// Can be overridden via `ZKP_MAX_PROOF_FILE_SIZE` environment variable
 const DEFAULT_MAX_PROOF_FILE_SIZE: u64 = 1024 * 1024;
 
 /// Default maximum allowed size for the ZK proof bytes (512KB)
 /// ZK proofs generated with k=11 should be well below this limit
 /// Exceeding this indicates a potentially malformed or incompatible proof
-/// Can be overridden via ZKP_MAX_ZK_PROOF_SIZE environment variable
+/// Can be overridden via `ZKP_MAX_ZK_PROOF_SIZE` environment variable
 const DEFAULT_MAX_ZK_PROOF_SIZE: usize = 512 * 1024;
 
 fn get_max_proof_file_size() -> u64 {
@@ -47,7 +47,7 @@ fn bytes_to_fixed_array(bytes: &[u8], name: &str) -> Result<[u8; HASH_SIZE]> {
     let len = bytes.len();
     bytes
         .try_into()
-        .map_err(|_| anyhow::anyhow!("{} must be {} bytes, got {} bytes", name, HASH_SIZE, len))
+        .map_err(|_| anyhow::anyhow!("{name} must be {HASH_SIZE} bytes, got {len} bytes"))
 }
 
 fn main() -> Result<()> {
@@ -105,7 +105,7 @@ fn main() -> Result<()> {
     let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
 
     let nullifier_file = args.proof_file.replace(".json", "_nullifiers.txt");
-    debug!("Nullifier file: {}", nullifier_file);
+    debug!("Nullifier file: {nullifier_file}");
 
     let mut prover = SetMembershipProver::new();
     info!("Generating/caching ZK-SNARK keys");
@@ -115,7 +115,7 @@ fn main() -> Result<()> {
         .context("Failed to generate verification keys")?;
     let has_replay = if std::path::Path::new(&nullifier_file).exists() {
         let existing_nullifiers = fs::read_to_string(&nullifier_file)
-            .with_context(|| format!("Failed to read nullifier file: {}", nullifier_file))?;
+            .with_context(|| format!("Failed to read nullifier file: {nullifier_file}"))?;
         existing_nullifiers
             .lines()
             .any(|line| line.trim() == proof.nullifier)
@@ -141,22 +141,13 @@ fn main() -> Result<()> {
     let nullifier_hex = proof.nullifier.clone();
 
     let leaf_bytes = hex::decode(&leaf_hex).with_context(|| {
-        format!(
-            "Failed to decode leaf hex '{}': expected 32-byte hex string",
-            leaf_hex
-        )
+        format!("Failed to decode leaf hex '{leaf_hex}': expected 32-byte hex string")
     })?;
     let root_bytes = hex::decode(&root_hex).with_context(|| {
-        format!(
-            "Failed to decode merkle root hex '{}': expected 32-byte hex string",
-            root_hex
-        )
+        format!("Failed to decode merkle root hex '{root_hex}': expected 32-byte hex string")
     })?;
     let nullifier_bytes = hex::decode(&nullifier_hex).with_context(|| {
-        format!(
-            "Failed to decode nullifier hex '{}': expected 32-byte hex string",
-            nullifier_hex
-        )
+        format!("Failed to decode nullifier hex '{nullifier_hex}': expected 32-byte hex string")
     })?;
 
     // Ensure we have 32-byte arrays
@@ -174,10 +165,7 @@ fn main() -> Result<()> {
         .iter()
         .map(|s| {
             let bytes = hex::decode(s).with_context(|| {
-                format!(
-                    "Failed to decode merkle sibling hex '{}': expected 32-byte hex string",
-                    s
-                )
+                format!("Failed to decode merkle sibling hex '{s}': expected 32-byte hex string")
             })?;
             bytes_to_fixed_array(&bytes, "Merkle sibling")
         })
@@ -200,7 +188,7 @@ fn main() -> Result<()> {
     let public_inputs = vec![leaf_base, root_base, nullifier_base];
 
     info!("Verifying ZK proof with public inputs");
-    let verification_result = prover.verify_proof(&params, &proof.zkp_proof, public_inputs);
+    let verification_result = prover.verify_proof(&params, &proof.zkp_proof, &public_inputs);
 
     match verification_result {
         Ok(_) => {
@@ -213,15 +201,15 @@ fn main() -> Result<()> {
             println!("reuse of same proof while maintaining privacy.");
 
             fs::write(&nullifier_file, format!("{}\n", proof.nullifier))
-                .with_context(|| format!("Failed to record nullifier to: {}", nullifier_file))?;
-            info!("Nullifier recorded to: {}", nullifier_file);
-            println!("\nNullifier recorded to: {}", nullifier_file);
+                .with_context(|| format!("Failed to record nullifier to: {nullifier_file}"))?;
+            info!("Nullifier recorded to: {nullifier_file}");
+            println!("\nNullifier recorded to: {nullifier_file}");
             Ok(())
         }
         Err(e) => {
-            error!("Proof verification FAILED: {}", e);
+            error!("Proof verification FAILED: {e}");
             println!("\n✗ Proof verification FAILED!");
-            println!("Error: {}", e);
+            println!("Error: {e}");
             Err(anyhow::anyhow!("Proof verification failed"))
         }
     }

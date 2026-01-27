@@ -28,7 +28,18 @@ pub struct ZKProofOutput {
 }
 
 impl ZKProofOutput {
+    const TIMESTAMP_TOLERANCE_SECS: u64 = 300;
+    const TIMESTAMP_MAX_AGE_SECS: u64 = 86400;
+
     /// Validates the proof output structure and cryptographic consistency.
+    ///
+    /// # Errors
+    /// Returns an error if validation fails, including:
+    /// - Empty or invalid fields
+    /// - Timestamp out of valid range
+    /// - Nullifier mismatch
+    /// - Invalid hex encoding
+    /// - Incorrect byte lengths
     pub fn validate(&self) -> Result<()> {
         if self.merkle_root.is_empty() {
             return Err(anyhow::anyhow!(
@@ -51,34 +62,27 @@ impl ZKProofOutput {
             .map(|d| d.as_secs())
             .unwrap_or(0);
 
-        const TIMESTAMP_TOLERANCE_SECS: u64 = 300;
-        const TIMESTAMP_MAX_AGE_SECS: u64 = 86400;
-
-        if self.timestamp > current_timestamp + TIMESTAMP_TOLERANCE_SECS {
+        if self.timestamp > current_timestamp + Self::TIMESTAMP_TOLERANCE_SECS {
             return Err(anyhow::anyhow!(
                 "Timestamp is too far in the future: {} (current: {}, tolerance: {}s). Please check system clock and proof timestamp.",
                 self.timestamp,
                 current_timestamp,
-                TIMESTAMP_TOLERANCE_SECS
+                Self::TIMESTAMP_TOLERANCE_SECS
             ));
         }
 
-        if current_timestamp > self.timestamp + TIMESTAMP_MAX_AGE_SECS {
+        if current_timestamp > self.timestamp + Self::TIMESTAMP_MAX_AGE_SECS {
             return Err(anyhow::anyhow!(
                 "Timestamp is too old: {} (current: {}, max age: {}s). This proof may be expired. Please generate a fresh proof.",
                 self.timestamp,
                 current_timestamp,
-                TIMESTAMP_MAX_AGE_SECS
+                Self::TIMESTAMP_MAX_AGE_SECS
             ));
         }
 
         let leaf_hex = &self.verification_key.leaf;
         let leaf_bytes = hex::decode(leaf_hex).map_err(|e| {
-            anyhow::anyhow!(
-                "Invalid leaf hex '{}': {}. Expected 32-byte hex string.",
-                leaf_hex,
-                e
-            )
+            anyhow::anyhow!("Invalid leaf hex '{leaf_hex}': {e}. Expected 32-byte hex string.")
         })?;
 
         if leaf_bytes.len() != HASH_SIZE {
@@ -144,7 +148,7 @@ pub fn compute_nullifier(leaf_bytes: &[u8], merkle_root: &[u8]) -> [u8; HASH_SIZ
 
 /// Compute nullifier directly from field elements.
 ///
-/// This is the field-level version of compute_nullifier for use when values
+/// This is the field-level version of `compute_nullifier` for use when values
 /// are already in field representation.
 ///
 /// # Arguments

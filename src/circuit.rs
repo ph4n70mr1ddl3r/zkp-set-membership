@@ -195,10 +195,12 @@ impl Default for SetMembershipProver {
 }
 
 impl SetMembershipProver {
+    #[must_use]
     pub fn new() -> Self {
         Self { vk: None, pk: None }
     }
 
+    #[must_use]
     pub fn with_keys(
         vk: Arc<VerifyingKey<vesta::Affine>>,
         pk: Arc<ProvingKey<vesta::Affine>>,
@@ -209,6 +211,10 @@ impl SetMembershipProver {
         }
     }
 
+    /// Generates and caches proving and verifying keys.
+    ///
+    /// # Errors
+    /// Returns an error if key generation fails.
     pub fn generate_and_cache_keys(&mut self, params: &Params<vesta::Affine>) -> Result<(), Error> {
         if let Some((vk, pk)) = CACHED_KEYS.get() {
             self.vk = Some(vk.clone());
@@ -230,18 +236,22 @@ impl SetMembershipProver {
         Ok(())
     }
 
+    /// Generates a zero-knowledge proof.
+    ///
+    /// # Errors
+    /// Returns an error if proving key is not set or proof generation fails.
     pub fn generate_proof(
         &self,
         params: &Params<vesta::Affine>,
         circuit: SetMembershipCircuit,
-        public_inputs: Vec<pallas::Base>,
+        public_inputs: &[pallas::Base],
     ) -> Result<Vec<u8>, Error> {
         let pk = self.pk.as_ref().ok_or(Error::Synthesis)?;
 
         let mut transcript = Blake2bWrite::init(vec![]);
         let mut rng = rand::rngs::ThreadRng::default();
 
-        let public_inputs_slice: &[&[&[pallas::Base]]] = &[&[&public_inputs]];
+        let public_inputs_slice: &[&[&[pallas::Base]]] = &[&[public_inputs]];
         create_proof(
             params,
             pk,
@@ -254,18 +264,22 @@ impl SetMembershipProver {
         Ok(transcript.finalize())
     }
 
+    /// Verifies a zero-knowledge proof.
+    ///
+    /// # Errors
+    /// Returns an error if verifying key is not set.
     pub fn verify_proof(
         &self,
         params: &Params<vesta::Affine>,
         proof: &[u8],
-        public_inputs: Vec<pallas::Base>,
+        public_inputs: &[pallas::Base],
     ) -> Result<bool, Error> {
         let vk = self.vk.as_ref().ok_or(Error::Synthesis)?;
 
         let strategy = SingleVerifier::new(params);
         let mut transcript = Blake2bRead::init(proof);
 
-        let public_inputs_slice: &[&[&[pallas::Base]]] = &[&[&public_inputs]];
+        let public_inputs_slice: &[&[&[pallas::Base]]] = &[&[public_inputs]];
         let result = verify_proof(params, vk, strategy, public_inputs_slice, &mut transcript);
 
         Ok(result.is_ok())

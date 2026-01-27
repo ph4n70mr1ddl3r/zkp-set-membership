@@ -58,11 +58,12 @@ impl MerkleTree {
     /// * `leaves` - Vector of 32-byte leaf values
     ///
     /// # Returns
-    /// A MerkleTree instance with computed root hash
+    /// A `MerkleTree` instance with computed root hash
     ///
     /// # Note
     /// For optimal performance, the number of leaves should be a power of 2.
     /// If not, the tree will handle it by propagating odd nodes up.
+    #[must_use]
     pub fn new(leaves: Vec<[u8; HASH_SIZE]>) -> Self {
         let root = Self::compute_root(&leaves);
         MerkleTree { root, leaves }
@@ -106,7 +107,7 @@ impl MerkleTree {
         }
 
         let mut siblings = Vec::new();
-        let mut level: Vec<[u8; HASH_SIZE]> = self.leaves.to_vec();
+        let mut level = self.leaves.clone();
         let mut index = leaf_index;
 
         while level.len() > 1 {
@@ -149,7 +150,7 @@ impl MerkleTree {
     ///
     /// # Note
     /// This only verifies the cryptographic correctness of the proof.
-    /// It does not verify that the leaf_index is valid for this tree.
+    /// It does not verify that the `leaf_index` is valid for this tree.
     #[must_use]
     pub fn verify_proof(&self, proof: &MerkleProof) -> bool {
         if proof.root != self.root {

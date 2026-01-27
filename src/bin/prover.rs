@@ -17,7 +17,7 @@ use zkp_set_membership::{
 
 /// Default maximum allowed size for the accounts file (10MB)
 /// Prevents memory exhaustion from excessively large input files
-/// Can be overridden via ZKP_MAX_ACCOUNTS_FILE_SIZE environment variable
+/// Can be overridden via `ZKP_MAX_ACCOUNTS_FILE_SIZE` environment variable
 const DEFAULT_MAX_ACCOUNTS_FILE_SIZE: u64 = 10 * 1024 * 1024;
 
 fn get_max_accounts_file_size() -> u64 {
@@ -151,8 +151,8 @@ fn main() -> Result<()> {
     let wallet: LocalWallet = private_key.parse().context("Failed to parse private key")?;
     let prover_address = wallet.address();
     let prover_address_str = format!("{:x}", prover_address);
-    info!("Prover address: 0x{}", prover_address_str);
-    println!("Prover address: 0x{}", prover_address_str);
+    info!("Prover address: 0x{prover_address_str}");
+    println!("Prover address: 0x{prover_address_str}");
 
     let normalized_addresses =
         normalize_addresses_batch(&addresses).context("Failed to normalize addresses")?;
@@ -180,8 +180,8 @@ fn main() -> Result<()> {
                 ));
             }
             leaf_index = Some(i);
-            info!("Found prover address at index {}", i);
-            println!("Found prover address at index {}", i);
+            info!("Found prover address at index {i}");
+            println!("Found prover address at index {i}");
         }
     }
 
@@ -197,7 +197,7 @@ fn main() -> Result<()> {
     println!("Merkle root: {}", hex::encode(merkle_tree.root));
     debug!("Merkle root: {}", hex::encode(merkle_tree.root));
 
-    info!("Generating Merkle proof for leaf index {}", leaf_index);
+    info!("Generating Merkle proof for leaf index {leaf_index}");
     println!("Generating Merkle proof...");
     let merkle_proof = merkle_tree
         .generate_proof(leaf_index)
@@ -245,7 +245,7 @@ fn main() -> Result<()> {
         .context("Failed to generate keys")?;
 
     let zkp_proof = prover
-        .generate_proof(&params, circuit, public_inputs)
+        .generate_proof(&params, circuit, &public_inputs)
         .context("Failed to create proof")?;
 
     info!(
@@ -267,7 +267,7 @@ fn main() -> Result<()> {
         .context("System time is before Unix epoch")?
         .as_secs();
 
-    debug!("Proof timestamp: {}", timestamp);
+    debug!("Proof timestamp: {timestamp}");
 
     let output = ZKProofOutput {
         merkle_root: hex::encode(merkle_tree.root),

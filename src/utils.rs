@@ -38,6 +38,12 @@ fn strip_hex_prefix(input: &str) -> &str {
 /// let result = validate_and_strip_hex("0x1234abcd", 8).unwrap();
 /// assert_eq!(result, "1234abcd");
 /// ```
+/// Validates and strips hex prefix from a string.
+///
+/// # Errors
+/// Returns an error if:
+/// - The hex string has incorrect length
+/// - The hex string contains non-hex characters
 pub fn validate_and_strip_hex(input: &str, expected_len: usize) -> Result<String> {
     let stripped = strip_hex_prefix(input);
 
@@ -60,13 +66,10 @@ pub fn validate_and_strip_hex(input: &str, expected_len: usize) -> Result<String
 
 /// Validates that a string contains only hex digits.
 ///
-/// # Arguments
-///
-/// * `input` - The hex string to validate (may include "0x" or "0X" prefix)
-///
-/// # Returns
-///
-/// `Ok(())` if the string is valid hex, or an error if validation fails.
+/// # Errors
+/// Returns an error if:
+/// - The string is empty
+/// - The string contains non-hex characters
 pub fn validate_hex_string(input: &str) -> Result<()> {
     let stripped = strip_hex_prefix(input);
 
@@ -97,6 +100,7 @@ const BASE_U64: u64 = 256;
 ///
 /// Field element in the Pallas curve
 #[inline]
+#[must_use]
 pub fn bytes_to_field(bytes: &[u8; 32]) -> pallas::Base {
     let mut value = pallas::Base::zero();
     let base = pallas::Base::from(BASE_U64);
@@ -118,6 +122,7 @@ pub fn bytes_to_field(bytes: &[u8; 32]) -> pallas::Base {
 ///
 /// 32-byte array representation of the field element
 #[inline]
+#[must_use]
 pub fn field_to_bytes(field: pallas::Base) -> [u8; 32] {
     let mut bytes = [0u8; 32];
     let repr = field.to_repr();
@@ -125,7 +130,7 @@ pub fn field_to_bytes(field: pallas::Base) -> [u8; 32] {
     bytes
 }
 
-/// Poseidon hash of two field elements using P128Pow5T3 specification.
+/// Poseidon hash of two field elements using `P128Pow5T3` specification.
 ///
 /// This is the optimized Poseidon hash for in-circuit use with 3 full rounds,
 /// 2 partial rounds, and constant length 2.
@@ -150,6 +155,7 @@ pub fn field_to_bytes(field: pallas::Base) -> [u8; 32] {
 /// let hash = poseidon_hash(left, right);
 /// ```
 #[inline]
+#[must_use]
 pub fn poseidon_hash(left: pallas::Base, right: pallas::Base) -> pallas::Base {
     let inputs = [left, right];
     poseidon::Hash::<_, PoseidonSpec, ConstantLength<2>, 3, 2>::init().hash(inputs)

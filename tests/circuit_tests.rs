@@ -42,10 +42,10 @@ fn test_circuit_proof_generation() {
     prover
         .generate_and_cache_keys(&params)
         .expect("Failed to generate keys");
-    let proof = prover.generate_proof(&params, circuit.clone(), public_inputs.clone());
+    let proof = prover.generate_proof(&params, circuit.clone(), &public_inputs);
     assert!(proof.is_ok(), "Proof generation should succeed");
 
-    let verification_result = prover.verify_proof(&params, &proof.unwrap(), public_inputs);
+    let verification_result = prover.verify_proof(&params, &proof.unwrap(), &public_inputs);
     assert!(
         verification_result.is_ok(),
         "Proof verification should succeed"
@@ -75,16 +75,16 @@ fn test_circuit_with_zero_values() {
     prover
         .generate_and_cache_keys(&params)
         .expect("Failed to generate keys");
-    let proof = prover.generate_proof(&params, circuit.clone(), public_inputs.clone());
+    let proof = prover.generate_proof(&params, circuit.clone(), &public_inputs);
     assert!(
         proof.is_ok(),
         "Proof generation with zero values should succeed"
     );
 
-    let verification_result = prover.verify_proof(&params, &proof.unwrap(), public_inputs);
+    let verification_result = prover.verify_proof(&params, &proof.unwrap(), &public_inputs);
     assert!(
-        verification_result.is_ok(),
-        "Proof verification should not panic with zero values"
+        verification_result.unwrap(),
+        "Proof with invalid public inputs should not verify"
     );
 }
 
@@ -112,13 +112,13 @@ fn test_proof_with_invalid_public_inputs() {
         .generate_and_cache_keys(&params)
         .expect("Failed to generate keys");
     let proof = prover
-        .generate_proof(&params, circuit.clone(), public_inputs)
+        .generate_proof(&params, circuit.clone(), &public_inputs)
         .unwrap();
 
     let invalid_leaf = bytes_to_field(&[99u8; 32]);
     let invalid_nullifier = compute_poseidon_hash(invalid_leaf, circuit.root);
     let invalid_inputs = vec![invalid_leaf, circuit.root, invalid_nullifier];
-    let result = prover.verify_proof(&params, &proof, invalid_inputs);
+    let result = prover.verify_proof(&params, &proof, &invalid_inputs);
 
     assert!(result.is_ok());
     assert!(!result.unwrap());
@@ -172,13 +172,13 @@ fn test_circuit_with_siblings() {
     prover
         .generate_and_cache_keys(&params)
         .expect("Failed to generate keys");
-    let proof = prover.generate_proof(&params, circuit.clone(), public_inputs.clone());
+    let proof = prover.generate_proof(&params, circuit.clone(), &public_inputs);
     assert!(
         proof.is_ok(),
         "Proof generation with siblings should succeed"
     );
 
-    let verification_result = prover.verify_proof(&params, &proof.unwrap(), public_inputs);
+    let verification_result = prover.verify_proof(&params, &proof.unwrap(), &public_inputs);
     assert!(
         verification_result.unwrap(),
         "Proof with siblings should be valid"
