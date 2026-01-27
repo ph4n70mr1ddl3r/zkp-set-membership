@@ -3,7 +3,9 @@ use clap::Parser;
 use halo2_proofs::poly::commitment::Params;
 use log::{debug, error, info};
 use pasta_curves::vesta;
-use std::fs;
+use std::fs::{self, File, OpenOptions};
+use std::io::{BufRead, BufReader, Write};
+use std::path::Path;
 use zkp_set_membership::{
     circuit::SetMembershipProver,
     types::{ZKProofOutput, HASH_SIZE},
@@ -50,10 +52,38 @@ fn bytes_to_fixed_array(bytes: &[u8], name: &str) -> Result<[u8; HASH_SIZE]> {
         .map_err(|_| anyhow::anyhow!("{name} must be {HASH_SIZE} bytes, got {len} bytes"))
 }
 
+fn check_and_add_nullifier(nullifier_file: &Path, nullifier: &str) -> Result<()> {
+    let mut content = String::new();
+    if nullifier_file.exists() {
+        content = fs::read_to_string(nullifier_file).context("Failed to read nullifier file")?;
+        if content.lines().any(|line| line.trim() == nullifier) {
+            return Err(anyhow::anyhow!("Nullifier already exists in file"));
+        }
+    }
+
+    if !content.is_empty() && !content.ends_with('\n') {
+        content.push('\n');
+    }
+
+    content.push_str(nullifier);
+    content.push('\n');
+
+    fs::write(nullifier_file, content).context("Failed to write nullifier file")?;
+    Ok(())
+}
+
 fn main() -> Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     let args = Args::parse();
+
+    let proof_path = Path::new(&args.proof_file);
+    if !proof_path.exists() {
+        return Err(anyhow::anyhow!(
+            "Proof file does not exist: {}",
+            args.proof_file
+        ));
+    }
 
     info!("Loading proof from: {}", args.proof_file);
     println!("Loading proof from: {}", args.proof_file);
@@ -113,28 +143,8 @@ fn main() -> Result<()> {
     prover
         .generate_and_cache_keys(&params)
         .context("Failed to generate verification keys")?;
-    let has_replay = if std::path::Path::new(&nullifier_file).exists() {
-        let existing_nullifiers = fs::read_to_string(&nullifier_file)
-            .with_context(|| format!("Failed to read nullifier file: {nullifier_file}"))?;
-        existing_nullifiers
-            .lines()
-            .any(|line| line.trim() == proof.nullifier)
-    } else {
-        false
-    };
 
-    if has_replay {
-        error!(
-            "Proof replay detected: nullifier {} has already been used. See {} for details.",
-            proof.nullifier, nullifier_file
-        );
-        return Err(anyhow::anyhow!(
-            "Proof replay detected: nullifier {} has already been used. See {} for details.",
-            proof.nullifier,
-            nullifier_file
-        ));
-    }
-
+    let nullifier_path = Path::new(&nullifier_file);
     info!("Replay attack check passed");
     let leaf_hex = proof.verification_key.leaf.clone();
     let root_hex = proof.merkle_root.clone();
@@ -188,8 +198,8 @@ fn main() -> Result<()> {
             println!("This nullifier can be used to prevent double-spending or");
             println!("reuse of same proof while maintaining privacy.");
 
-            fs::write(&nullifier_file, format!("{}\n", proof.nullifier))
-                .with_context(|| format!("Failed to record nullifier to: {nullifier_file}"))?;
+            check_and_add_nullifier(nullifier_path, &proof.nullifier)
+                .with_context(|| format!("Failed to record nullifier to: {}", nullifier_file))?;
             info!("Nullifier recorded to: {nullifier_file}");
             println!("\nNullifier recorded to: {nullifier_file}");
             Ok(())

@@ -8,6 +8,7 @@ use crate::utils::{bytes_to_field, field_to_bytes, poseidon_hash};
 use std::fmt;
 
 const HASH_SIZE: usize = 32;
+const MAX_LEAVES: usize = 2048;
 
 /// A Merkle proof for leaf inclusion.
 ///
@@ -64,8 +65,17 @@ impl MerkleTree {
     /// For optimal performance, the number of leaves should be a power of 2.
     /// If not, the tree will handle it by propagating odd nodes up.
     /// Empty leaves vector is allowed and will produce a zero root.
+    ///
+    /// # Panics
+    /// Panics if number of leaves exceeds MAX_LEAVES (2048).
     #[must_use]
     pub fn new(leaves: Vec<[u8; HASH_SIZE]>) -> Self {
+        assert!(
+            leaves.len() <= MAX_LEAVES,
+            "Number of leaves {} exceeds maximum allowed {}",
+            leaves.len(),
+            MAX_LEAVES
+        );
         let root = Self::compute_root(&leaves);
         MerkleTree { root, leaves }
     }

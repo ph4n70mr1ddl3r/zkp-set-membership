@@ -1,7 +1,7 @@
 //! Type definitions for the ZKP set membership system.
 
 use crate::utils::{bytes_to_field, field_to_bytes, poseidon_hash};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use pasta_curves::pallas;
 use serde::{Deserialize, Serialize};
 
@@ -28,7 +28,7 @@ pub struct ZKProofOutput {
 }
 
 impl ZKProofOutput {
-    const TIMESTAMP_TOLERANCE_SECS: u64 = 300;
+    const TIMESTAMP_TOLERANCE_SECS: u64 = 30;
     const TIMESTAMP_MAX_AGE_SECS: u64 = 86400;
 
     /// Validates the proof output structure and cryptographic consistency.
@@ -110,7 +110,8 @@ impl ZKProofOutput {
         }
 
         // Verify nullifier matches expected value
-        let expected_nullifier = compute_nullifier(&leaf_bytes, &root_bytes);
+        let expected_nullifier = compute_nullifier(&leaf_bytes, &root_bytes)
+            .context("Failed to compute expected nullifier")?;
         if self.nullifier != hex::encode(expected_nullifier) {
             return Err(anyhow::anyhow!(
                 "Nullifier mismatch: expected {}, got {}. The nullifier must equal H(leaf || root). This indicates corrupted or tampered proof data.",
@@ -125,31 +126,53 @@ impl ZKProofOutput {
 
 /// Compute nullifier as H(leaf || root) using Poseidon hash.
 ///
-/// This function takes byte slices and normalizes them to 32 bytes before
+/// This function takes byte slices and validates they are exactly 32 bytes before
 /// computing the Poseidon hash, which serves as a deterministic nullifier
 /// to prevent proof replay attacks.
 ///
 /// # Arguments
 ///
-/// * `leaf_bytes` - Leaf value as bytes (will be normalized to 32 bytes)
-/// * `merkle_root` - Merkle root as bytes (will be normalized to 32 bytes)
+/// * `leaf_bytes` - Leaf value as bytes (must be exactly 32 bytes)
+/// * `merkle_root` - Merkle root as bytes (must be exactly 32 bytes)
 ///
 /// # Returns
 ///
 /// 32-byte nullifier hash
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - `leaf_bytes` is not exactly 32 bytes
+/// - `merkle_root` is not exactly 32 bytes
 ///
 /// # Security Considerations
 ///
 /// The nullifier is deterministic and unique for each (leaf, root) pair.
 /// Reusing the same leaf with the same root will produce the same nullifier,
 /// which enables replay attack detection.
-#[must_use]
-#[inline]
-pub fn compute_nullifier(leaf_bytes: &[u8], merkle_root: &[u8]) -> [u8; HASH_SIZE] {
+///
+/// Inputs longer than 32 bytes are rejected to prevent collision attacks
+/// where different inputs could produce the same nullifier.
+pub fn compute_nullifier(leaf_bytes: &[u8], merkle_root: &[u8]) -> Result<[u8; HASH_SIZE]> {
+    if leaf_bytes.len() != HASH_SIZE {
+        return Err(anyhow::anyhow!(
+            "Leaf must be exactly {} bytes, got {} bytes",
+            HASH_SIZE,
+            leaf_bytes.len()
+        ));
+    }
+    if merkle_root.len() != HASH_SIZE {
+        return Err(anyhow::anyhow!(
+            "Root must be exactly {} bytes, got {} bytes",
+            HASH_SIZE,
+            merkle_root.len()
+        ));
+    }
+
     let leaf_field = bytes_to_field(&normalize_to_32_bytes(leaf_bytes));
     let root_field = bytes_to_field(&normalize_to_32_bytes(merkle_root));
     let hash_field = poseidon_hash(leaf_field, root_field);
-    field_to_bytes(hash_field)
+    Ok(field_to_bytes(hash_field))
 }
 
 /// Compute nullifier directly from field elements.
@@ -173,12 +196,12 @@ pub fn compute_nullifier_from_fields(leaf: pallas::Base, root: pallas::Base) -> 
 
 /// Converts a variable-length byte slice to 32 bytes.
 ///
-/// If the input is >= 32 bytes, takes the first 32 bytes.
 /// If the input is < 32 bytes, pads with zeros on the right.
+/// Caller must ensure input is <= 32 bytes.
 ///
 /// # Arguments
 ///
-/// * `bytes` - Byte slice to normalize
+/// * `bytes` - Byte slice to normalize (must be <= 32 bytes)
 ///
 /// # Returns
 ///
@@ -187,18 +210,10 @@ pub fn compute_nullifier_from_fields(leaf: pallas::Base, root: pallas::Base) -> 
 const fn normalize_to_32_bytes(bytes: &[u8]) -> [u8; HASH_SIZE] {
     let mut arr = [0u8; HASH_SIZE];
     let len = bytes.len();
-    if len > HASH_SIZE {
-        let mut i = 0;
-        while i < HASH_SIZE {
-            arr[i] = bytes[i];
-            i += 1;
-        }
-    } else {
-        let mut i = 0;
-        while i < len {
-            arr[i] = bytes[i];
-            i += 1;
-        }
+    let mut i = 0;
+    while i < len {
+        arr[i] = bytes[i];
+        i += 1;
     }
     arr
 }

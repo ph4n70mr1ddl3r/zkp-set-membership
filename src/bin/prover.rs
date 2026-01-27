@@ -4,6 +4,7 @@ use ethers::signers::{LocalWallet, Signer};
 use halo2_proofs::poly::commitment::Params;
 use log::{debug, info};
 use pasta_curves::vesta;
+use rpassword::read_password;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -40,9 +41,6 @@ const PRIVATE_KEY_HEX_LENGTH: usize = 64;
 struct Args {
     #[arg(short, long)]
     accounts_file: PathBuf,
-
-    #[arg(short, long)]
-    private_key: Option<String>,
 
     #[arg(short, long, default_value = "proof.json")]
     output: PathBuf,
@@ -88,19 +86,17 @@ fn main() -> Result<()> {
 
     let args = Args::parse();
 
-    let private_key = match args.private_key {
-        Some(key) => key,
-        None => match std::env::var("ZKP_PRIVATE_KEY") {
-            Ok(key) => {
-                info!("Using private key from ZKP_PRIVATE_KEY environment variable");
-                key
-            }
-            Err(_) => {
-                return Err(anyhow::anyhow!(
-                    "Private key must be provided via --private-key argument or ZKP_PRIVATE_KEY environment variable"
-                ));
-            }
-        },
+    let private_key = match std::env::var("ZKP_PRIVATE_KEY") {
+        Ok(key) => {
+            info!("Using private key from ZKP_PRIVATE_KEY environment variable");
+            key
+        }
+        Err(_) => {
+            eprint!("Enter private key: ");
+            let key = read_password().context("Failed to read private key from stdin")?;
+            info!("Using private key from secure stdin");
+            key
+        }
     };
 
     info!("Loading accounts from: {:?}", args.accounts_file);
@@ -208,7 +204,8 @@ fn main() -> Result<()> {
 
     info!("Computing deterministic nullifier");
     println!("Computing deterministic nullifier...");
-    let nullifier = compute_nullifier(&leaf_hash, &root_hash);
+    let nullifier =
+        compute_nullifier(&leaf_hash, &root_hash).context("Failed to compute nullifier")?;
     println!("Nullifier: {}", hex::encode(nullifier));
     debug!("Nullifier: {}", hex::encode(nullifier));
 

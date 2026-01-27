@@ -307,7 +307,7 @@ impl SetMembershipProver {
     /// Generates a zero-knowledge proof.
     ///
     /// # Errors
-    /// Returns an error if proving key is not set or proof generation fails.
+    /// Returns an error if proving key is not set, circuit validation fails, or proof generation fails.
     pub fn generate_proof(
         &self,
         params: &Params<vesta::Affine>,
@@ -315,6 +315,10 @@ impl SetMembershipProver {
         public_inputs: &[pallas::Base],
     ) -> Result<Vec<u8>, Error> {
         let pk = self.pk.as_ref().ok_or(Error::Synthesis)?;
+
+        if !circuit.validate_consistency() {
+            return Err(Error::Synthesis);
+        }
 
         let mut transcript = Blake2bWrite::init(vec![]);
         let mut rng = rand::rngs::ThreadRng::default();
