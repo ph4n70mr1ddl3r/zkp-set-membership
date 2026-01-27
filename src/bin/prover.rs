@@ -155,6 +155,15 @@ fn main() -> Result<()> {
     let normalized_addresses =
         normalize_addresses_batch(&addresses).context("Failed to normalize addresses")?;
 
+    if normalized_addresses.len() > (1 << CIRCUIT_K) {
+        return Err(anyhow::anyhow!(
+            "Number of addresses {} exceeds CIRCUIT_K capacity of {} (max allowed: {})",
+            normalized_addresses.len(),
+            1 << CIRCUIT_K,
+            1 << CIRCUIT_K
+        ));
+    }
+
     let prover_normalized = normalize_address(&prover_address_str)?;
 
     let mut leaf_hashes = Vec::with_capacity(addresses.len());
@@ -191,7 +200,8 @@ fn main() -> Result<()> {
 
     info!("Building Merkle tree with {} leaves", leaf_hashes.len());
     println!("Building Merkle tree...");
-    let merkle_tree = MerkleTree::new(leaf_hashes.clone());
+    let merkle_tree =
+        MerkleTree::new(leaf_hashes.clone()).context("Failed to create Merkle tree")?;
     println!("Merkle root: {}", hex::encode(merkle_tree.root));
     debug!("Merkle root: {}", hex::encode(merkle_tree.root));
 

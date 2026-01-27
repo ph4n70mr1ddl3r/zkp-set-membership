@@ -25,7 +25,7 @@ fn bench_proof_generation(c: &mut Criterion) {
             })
             .collect();
 
-        let tree = MerkleTree::new(leaves.clone());
+        let tree = MerkleTree::new(leaves.clone()).unwrap();
         let proof = tree.generate_proof(0).unwrap();
 
         let leaf = bytes_to_field(&proof.leaf);
@@ -74,7 +74,7 @@ fn bench_proof_verification(c: &mut Criterion) {
         })
         .collect();
 
-    let tree = MerkleTree::new(leaves.clone());
+    let tree = MerkleTree::new(leaves.clone()).unwrap();
     let proof = tree.generate_proof(0).unwrap();
 
     let leaf = bytes_to_field(&proof.leaf);
@@ -122,7 +122,7 @@ fn bench_merkle_tree_construction(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::from_parameter(leaf_count),
             leaf_count,
-            |b, _| b.iter(|| black_box(MerkleTree::new(black_box(leaves.clone())))),
+            |b, _| b.iter(|| black_box(MerkleTree::new(black_box(leaves.clone())).unwrap())),
         );
     }
 
@@ -141,7 +141,7 @@ fn bench_merkle_proof_generation(c: &mut Criterion) {
             })
             .collect();
 
-        let tree = MerkleTree::new(leaves);
+        let tree = MerkleTree::new(leaves).unwrap();
 
         group.bench_with_input(
             BenchmarkId::from_parameter(leaf_count),

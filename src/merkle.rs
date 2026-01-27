@@ -4,10 +4,11 @@
 //! for efficient in-circuit verification. It supports proof generation and
 //! verification for set membership.
 
+use crate::types::HASH_SIZE;
 use crate::utils::{bytes_to_field, field_to_bytes, poseidon_hash};
+use anyhow;
 use std::fmt;
 
-const HASH_SIZE: usize = 32;
 const MAX_LEAVES: usize = 2048;
 
 /// A Merkle proof for leaf inclusion.
@@ -33,7 +34,7 @@ pub struct MerkleProof {
 /// use zkp_set_membership::merkle::MerkleTree;
 ///
 /// let leaves = vec![[1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32]];
-/// let tree = MerkleTree::new(leaves.clone());
+/// let tree = MerkleTree::new(leaves.clone()).unwrap();
 ///
 /// let proof = tree.generate_proof(0).unwrap();
 /// assert!(tree.verify_proof(&proof));
@@ -52,6 +53,20 @@ fn hash_pair(left: &[u8; HASH_SIZE], right: &[u8; HASH_SIZE]) -> [u8; HASH_SIZE]
     field_to_bytes(hash_field)
 }
 
+fn compute_next_level(level: &[[u8; HASH_SIZE]]) -> Vec<[u8; HASH_SIZE]> {
+    let new_level_capacity = level.len().div_ceil(2);
+    let mut new_level = Vec::with_capacity(new_level_capacity);
+    for i in (0..level.len()).step_by(2) {
+        if i + 1 < level.len() {
+            let hash = hash_pair(&level[i], &level[i + 1]);
+            new_level.push(hash);
+        } else {
+            new_level.push(level[i]);
+        }
+    }
+    new_level
+}
+
 impl MerkleTree {
     /// Create a new Merkle tree from a list of leaves.
     ///
@@ -61,23 +76,24 @@ impl MerkleTree {
     /// # Returns
     /// A `MerkleTree` instance with computed root hash
     ///
+    /// # Errors
+    /// Returns an error if number of leaves exceeds MAX_LEAVES (2048).
+    ///
     /// # Note
     /// For optimal performance, the number of leaves should be a power of 2.
     /// If not, the tree will handle it by propagating odd nodes up.
     /// Empty leaves vector is allowed and will produce a zero root.
-    ///
-    /// # Panics
-    /// Panics if number of leaves exceeds MAX_LEAVES (2048).
-    #[must_use]
-    pub fn new(leaves: Vec<[u8; HASH_SIZE]>) -> Self {
-        assert!(
-            leaves.len() <= MAX_LEAVES,
-            "Number of leaves {} exceeds maximum allowed {}",
-            leaves.len(),
-            MAX_LEAVES
-        );
+    #[must_use = "The Merkle tree should be used for further operations"]
+    pub fn new(leaves: Vec<[u8; HASH_SIZE]>) -> Result<Self, anyhow::Error> {
+        if leaves.len() > MAX_LEAVES {
+            return Err(anyhow::anyhow!(
+                "Number of leaves {} exceeds maximum allowed {}",
+                leaves.len(),
+                MAX_LEAVES
+            ));
+        }
         let root = Self::compute_root(&leaves);
-        MerkleTree { root, leaves }
+        Ok(MerkleTree { root, leaves })
     }
 
     fn compute_root(leaves: &[[u8; HASH_SIZE]]) -> [u8; HASH_SIZE] {
@@ -88,17 +104,7 @@ impl MerkleTree {
         let mut level = leaves.to_vec();
 
         while level.len() > 1 {
-            let new_level_capacity = level.len().div_ceil(2);
-            let mut new_level = Vec::with_capacity(new_level_capacity);
-            for i in (0..level.len()).step_by(2) {
-                if i + 1 < level.len() {
-                    let hash = hash_pair(&level[i], &level[i + 1]);
-                    new_level.push(hash);
-                } else {
-                    new_level.push(level[i]);
-                }
-            }
-            level = new_level;
+            level = compute_next_level(&level);
         }
 
         level[0]
@@ -130,19 +136,8 @@ impl MerkleTree {
                 siblings.push(level[sibling_index]);
             }
 
-            let new_level_capacity = level.len().div_ceil(2);
-            let mut new_level = Vec::with_capacity(new_level_capacity);
-            for i in (0..level.len()).step_by(2) {
-                if i + 1 < level.len() {
-                    let hash = hash_pair(&level[i], &level[i + 1]);
-                    new_level.push(hash);
-                } else {
-                    new_level.push(level[i]);
-                }
-            }
-
             index /= 2;
-            level = new_level;
+            level = compute_next_level(&level);
         }
 
         Some(MerkleProof {

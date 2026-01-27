@@ -6,7 +6,7 @@ mod tests {
     fn test_merkle_tree_creation() {
         let leaves = vec![[1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32]];
 
-        let tree = MerkleTree::new(leaves);
+        let tree = MerkleTree::new(leaves).unwrap();
         assert_ne!(tree.root, [0u8; 32]);
     }
 
@@ -14,7 +14,7 @@ mod tests {
     fn test_merkle_proof_generation() {
         let leaves = vec![[1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32]];
 
-        let tree = MerkleTree::new(leaves);
+        let tree = MerkleTree::new(leaves).unwrap();
         let proof = tree.generate_proof(0);
 
         assert!(proof.is_some());
@@ -27,7 +27,7 @@ mod tests {
     fn test_merkle_proof_verification() {
         let leaves = vec![[1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32]];
 
-        let tree = MerkleTree::new(leaves);
+        let tree = MerkleTree::new(leaves).unwrap();
         let proof = tree.generate_proof(2).unwrap();
 
         assert!(tree.verify_proof(&proof));
@@ -39,8 +39,8 @@ mod tests {
 
         let leaves2 = vec![[5u8; 32], [6u8; 32], [7u8; 32], [8u8; 32]];
 
-        let tree1 = MerkleTree::new(leaves1);
-        let tree2 = MerkleTree::new(leaves2);
+        let tree1 = MerkleTree::new(leaves1).unwrap();
+        let tree2 = MerkleTree::new(leaves2).unwrap();
 
         let proof = tree1.generate_proof(0).unwrap();
 
@@ -59,7 +59,7 @@ mod tests {
             leaves.push(leaf);
         }
 
-        let tree = MerkleTree::new(leaves);
+        let tree = MerkleTree::new(leaves).unwrap();
         let proof = tree.generate_proof(512);
 
         assert!(proof.is_some());
@@ -70,7 +70,7 @@ mod tests {
     fn test_merkle_proof_with_invalid_index() {
         let leaves = vec![[1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32]];
 
-        let tree = MerkleTree::new(leaves);
+        let tree = MerkleTree::new(leaves).unwrap();
         let proof = tree.generate_proof(999);
 
         // Should return None for invalid index
@@ -81,7 +81,7 @@ mod tests {
     fn test_merkle_proof_with_tampered_root() {
         let leaves = vec![[1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32]];
 
-        let tree = MerkleTree::new(leaves);
+        let tree = MerkleTree::new(leaves).unwrap();
         let mut proof = tree.generate_proof(0).unwrap();
 
         // Tamper with the root
@@ -95,7 +95,7 @@ mod tests {
     fn test_merkle_proof_with_tampered_leaf() {
         let leaves = vec![[1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32]];
 
-        let tree = MerkleTree::new(leaves);
+        let tree = MerkleTree::new(leaves).unwrap();
         let mut proof = tree.generate_proof(0).unwrap();
 
         // Tamper with the leaf
@@ -109,7 +109,7 @@ mod tests {
     fn test_merkle_proof_with_tampered_siblings() {
         let leaves = vec![[1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32]];
 
-        let tree = MerkleTree::new(leaves);
+        let tree = MerkleTree::new(leaves).unwrap();
         let mut proof = tree.generate_proof(0).unwrap();
 
         // Tamper with the siblings
@@ -124,7 +124,7 @@ mod tests {
     #[test]
     fn test_merkle_tree_with_single_leaf() {
         let leaves = vec![[1u8; 32]];
-        let tree = MerkleTree::new(leaves);
+        let tree = MerkleTree::new(leaves).unwrap();
         let proof = tree.generate_proof(0);
 
         assert!(proof.is_some());
@@ -134,7 +134,7 @@ mod tests {
     #[test]
     fn test_merkle_tree_with_non_power_of_two() {
         let leaves = vec![[1u8; 32], [2u8; 32], [3u8; 32]];
-        let tree = MerkleTree::new(leaves);
+        let tree = MerkleTree::new(leaves).unwrap();
         let proof = tree.generate_proof(0);
 
         assert!(proof.is_some());
@@ -145,7 +145,7 @@ mod tests {
     fn test_merkle_proof_index_boundary() {
         let leaves = vec![[1u8; 32], [2u8; 32], [4u8; 32], [8u8; 32]];
 
-        let tree = MerkleTree::new(leaves.clone());
+        let tree = MerkleTree::new(leaves.clone()).unwrap();
 
         // Test first leaf
         let proof_first = tree.generate_proof(0).unwrap();
@@ -161,8 +161,8 @@ mod tests {
         let leaves1 = vec![[1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32]];
         let leaves2 = vec![[1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32]];
 
-        let tree1 = MerkleTree::new(leaves1);
-        let tree2 = MerkleTree::new(leaves2);
+        let tree1 = MerkleTree::new(leaves1).unwrap();
+        let tree2 = MerkleTree::new(leaves2).unwrap();
 
         assert_eq!(tree1.root, tree2.root);
     }

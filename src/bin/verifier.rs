@@ -147,17 +147,17 @@ fn main() -> Result<()> {
 
     let nullifier_path = Path::new(&nullifier_file);
     info!("Replay attack check passed");
-    let leaf_hex = proof.verification_key.leaf.clone();
-    let root_hex = proof.merkle_root.clone();
-    let nullifier_hex = proof.nullifier.clone();
+    let leaf_hex = &proof.verification_key.leaf;
+    let root_hex = &proof.merkle_root;
+    let nullifier_hex = &proof.nullifier;
 
-    let leaf_bytes = hex::decode(&leaf_hex).with_context(|| {
+    let leaf_bytes = hex::decode(leaf_hex).with_context(|| {
         format!("Failed to decode leaf hex '{leaf_hex}': expected 32-byte hex string")
     })?;
-    let root_bytes = hex::decode(&root_hex).with_context(|| {
+    let root_bytes = hex::decode(root_hex).with_context(|| {
         format!("Failed to decode merkle root hex '{root_hex}': expected 32-byte hex string")
     })?;
-    let nullifier_bytes = hex::decode(&nullifier_hex).with_context(|| {
+    let nullifier_bytes = hex::decode(nullifier_hex).with_context(|| {
         format!("Failed to decode nullifier hex '{nullifier_hex}': expected 32-byte hex string")
     })?;
 

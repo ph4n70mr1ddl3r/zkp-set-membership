@@ -51,12 +51,14 @@ impl ZKProofOutput {
 
         if self.merkle_root.is_empty() {
             return Err(anyhow::anyhow!(
-                "Merkle root cannot be empty. Expected a 32-byte hex string."
+                "Merkle root cannot be empty. Expected a {}-byte hex string.",
+                HASH_SIZE
             ));
         }
         if self.nullifier.is_empty() {
             return Err(anyhow::anyhow!(
-                "Nullifier cannot be empty. Expected a 32-byte hex string."
+                "Nullifier cannot be empty. Expected a {}-byte hex string.",
+                HASH_SIZE
             ));
         }
         if self.zkp_proof.is_empty() {
@@ -91,7 +93,10 @@ impl ZKProofOutput {
 
         let leaf_hex = &self.verification_key.leaf;
         let leaf_bytes = hex::decode(leaf_hex).map_err(|e| {
-            anyhow::anyhow!("Invalid leaf hex '{leaf_hex}': {e}. Expected 32-byte hex string.")
+            anyhow::anyhow!(
+                "Invalid leaf hex '{leaf_hex}': {e}. Expected {}-byte hex string.",
+                HASH_SIZE
+            )
         })?;
 
         if leaf_bytes.len() != HASH_SIZE {
@@ -104,9 +109,10 @@ impl ZKProofOutput {
 
         let root_bytes = hex::decode(&self.merkle_root).map_err(|e| {
             anyhow::anyhow!(
-                "Invalid merkle root hex '{}': {}. Expected 32-byte hex string.",
+                "Invalid merkle root hex '{}': {}. Expected {}-byte hex string.",
                 self.merkle_root,
-                e
+                e,
+                HASH_SIZE
             )
         })?;
 
