@@ -52,6 +52,7 @@ impl ZKProofOutput {
             .unwrap_or(0);
 
         const TIMESTAMP_TOLERANCE_SECS: u64 = 300;
+        const TIMESTAMP_MAX_AGE_SECS: u64 = 86400;
 
         if self.timestamp > current_timestamp + TIMESTAMP_TOLERANCE_SECS {
             return Err(anyhow::anyhow!(
@@ -59,6 +60,15 @@ impl ZKProofOutput {
                 self.timestamp,
                 current_timestamp,
                 TIMESTAMP_TOLERANCE_SECS
+            ));
+        }
+
+        if current_timestamp > self.timestamp + TIMESTAMP_MAX_AGE_SECS {
+            return Err(anyhow::anyhow!(
+                "Timestamp is too old: {} (current: {}, max age: {}s)",
+                self.timestamp,
+                current_timestamp,
+                TIMESTAMP_MAX_AGE_SECS
             ));
         }
 

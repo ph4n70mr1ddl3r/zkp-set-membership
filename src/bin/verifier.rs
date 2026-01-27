@@ -159,6 +159,9 @@ fn main() -> Result<()> {
 
     let siblings = siblings.context("Failed to parse merkle siblings from proof")?;
 
+    // Note: The circuit is reconstructed here for potential future use, but verification
+    // currently only uses the public inputs. The circuit itself is not needed for the
+    // verification process with the current implementation.
     let _circuit = SetMembershipCircuit {
         leaf: leaf_base,
         root: root_base,
