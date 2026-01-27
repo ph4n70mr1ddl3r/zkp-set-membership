@@ -107,8 +107,8 @@ impl MerkleTree {
             return None;
         }
 
-        let mut siblings =
-            Vec::with_capacity(HASH_SIZE.next_power_of_two().trailing_zeros() as usize);
+        let max_depth = self.leaves.len().next_power_of_two().ilog2() as usize;
+        let mut siblings = Vec::with_capacity(max_depth);
         let mut level = self.leaves.clone();
         let mut index = leaf_index;
 

@@ -5,7 +5,7 @@ use log::{debug, error, info};
 use pasta_curves::vesta;
 use std::fs;
 use zkp_set_membership::{
-    circuit::{SetMembershipCircuit, SetMembershipProver},
+    circuit::SetMembershipProver,
     types::{ZKProofOutput, HASH_SIZE},
     utils::bytes_to_field,
     CIRCUIT_K,
@@ -159,8 +159,8 @@ fn main() -> Result<()> {
     let root_base = bytes_to_field(&root_array);
     let nullifier_base = bytes_to_field(&nullifier_array);
 
-    // Parse Merkle siblings from proof
-    let siblings: Result<Vec<[u8; 32]>> = proof
+    // Validate Merkle siblings format (proof structure verification)
+    proof
         .merkle_siblings
         .iter()
         .map(|s| {
@@ -169,20 +169,8 @@ fn main() -> Result<()> {
             })?;
             bytes_to_fixed_array(&bytes, "Merkle sibling")
         })
-        .collect();
-
-    let siblings = siblings.context("Failed to parse merkle siblings from proof")?;
-
-    // Note: The circuit is reconstructed here for potential future use, but verification
-    // currently only uses the public inputs. The circuit itself is not needed for the
-    // verification process with the current implementation.
-    let _circuit = SetMembershipCircuit {
-        leaf: leaf_base,
-        root: root_base,
-        nullifier: nullifier_base,
-        siblings: siblings.iter().map(bytes_to_field).collect(),
-        leaf_index: proof.leaf_index,
-    };
+        .collect::<Result<Vec<_>>>()
+        .context("Failed to validate merkle siblings from proof")?;
 
     // Public inputs for verification
     let public_inputs = vec![leaf_base, root_base, nullifier_base];
