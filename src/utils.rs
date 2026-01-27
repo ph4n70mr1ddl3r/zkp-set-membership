@@ -30,6 +30,11 @@ fn strip_hex_prefix(input: &str) -> &str {
 ///
 /// The stripped hex string if valid, or an error if validation fails.
 ///
+/// # Errors
+/// Returns an error if:
+/// - The hex string has incorrect length
+/// - The hex string contains non-hex characters
+///
 /// # Examples
 ///
 /// ```
@@ -38,12 +43,6 @@ fn strip_hex_prefix(input: &str) -> &str {
 /// let result = validate_and_strip_hex("0x1234abcd", 8).unwrap();
 /// assert_eq!(result, "1234abcd");
 /// ```
-/// Validates and strips hex prefix from a string.
-///
-/// # Errors
-/// Returns an error if:
-/// - The hex string has incorrect length
-/// - The hex string contains non-hex characters
 pub fn validate_and_strip_hex(input: &str, expected_len: usize) -> Result<String> {
     let stripped = strip_hex_prefix(input);
 
@@ -70,20 +69,15 @@ pub fn validate_and_strip_hex(input: &str, expected_len: usize) -> Result<String
 /// Returns an error if:
 /// - The string is empty
 /// - The string contains non-hex characters
-pub fn validate_hex_string(input: &str) -> Result<()> {
+#[must_use]
+pub fn validate_hex_string(input: &str) -> bool {
     let stripped = strip_hex_prefix(input);
 
     if stripped.is_empty() {
-        return Err(anyhow::anyhow!("Invalid hex string: cannot be empty"));
+        return false;
     }
 
-    if !is_valid_hex_string(stripped) {
-        return Err(anyhow::anyhow!(
-            "Invalid hex string: contains non-hex characters"
-        ));
-    }
-
-    Ok(())
+    is_valid_hex_string(stripped)
 }
 
 const BASE_U64: u64 = 256;
@@ -215,31 +209,22 @@ mod tests {
 
     #[test]
     fn test_validate_hex_string_valid() {
-        let result = validate_hex_string("0x1234abcd");
-        assert!(result.is_ok());
+        assert!(validate_hex_string("0x1234abcd"));
     }
 
     #[test]
     fn test_validate_hex_string_valid_no_prefix() {
-        let result = validate_hex_string("1234abcd");
-        assert!(result.is_ok());
+        assert!(validate_hex_string("1234abcd"));
     }
 
     #[test]
     fn test_validate_hex_string_invalid() {
-        let result = validate_hex_string("0x1234xyzw");
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("non-hex characters"));
+        assert!(!validate_hex_string("0x1234xyzw"));
     }
 
     #[test]
     fn test_validate_hex_string_empty() {
-        let result = validate_hex_string("");
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("cannot be empty"));
+        assert!(!validate_hex_string(""));
     }
 
     #[test]

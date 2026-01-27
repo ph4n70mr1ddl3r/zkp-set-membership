@@ -63,6 +63,7 @@ impl MerkleTree {
     /// # Note
     /// For optimal performance, the number of leaves should be a power of 2.
     /// If not, the tree will handle it by propagating odd nodes up.
+    /// Empty leaves vector is allowed and will produce a zero root.
     #[must_use]
     pub fn new(leaves: Vec<[u8; HASH_SIZE]>) -> Self {
         let root = Self::compute_root(&leaves);
@@ -70,6 +71,10 @@ impl MerkleTree {
     }
 
     fn compute_root(leaves: &[[u8; HASH_SIZE]]) -> [u8; HASH_SIZE] {
+        if leaves.is_empty() {
+            return [0u8; HASH_SIZE];
+        }
+
         let mut level = leaves.to_vec();
 
         while level.len() > 1 {
@@ -86,11 +91,7 @@ impl MerkleTree {
             level = new_level;
         }
 
-        if level.is_empty() {
-            [0u8; HASH_SIZE]
-        } else {
-            level[0]
-        }
+        level[0]
     }
 
     /// Generate a Merkle proof for a leaf at the given index.
@@ -106,7 +107,8 @@ impl MerkleTree {
             return None;
         }
 
-        let mut siblings = Vec::new();
+        let mut siblings =
+            Vec::with_capacity(HASH_SIZE.next_power_of_two().trailing_zeros() as usize);
         let mut level = self.leaves.clone();
         let mut index = leaf_index;
 
@@ -118,7 +120,8 @@ impl MerkleTree {
                 siblings.push(level[sibling_index]);
             }
 
-            let mut new_level = Vec::new();
+            let new_level_capacity = level.len().div_ceil(2);
+            let mut new_level = Vec::with_capacity(new_level_capacity);
             for i in (0..level.len()).step_by(2) {
                 if i + 1 < level.len() {
                     let hash = hash_pair(&level[i], &level[i + 1]);

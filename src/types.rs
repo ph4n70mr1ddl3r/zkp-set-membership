@@ -137,6 +137,12 @@ impl ZKProofOutput {
 /// # Returns
 ///
 /// 32-byte nullifier hash
+///
+/// # Security Considerations
+///
+/// The nullifier is deterministic and unique for each (leaf, root) pair.
+/// Reusing the same leaf with the same root will produce the same nullifier,
+/// which enables replay attack detection.
 #[must_use]
 #[inline]
 pub fn compute_nullifier(leaf_bytes: &[u8], merkle_root: &[u8]) -> [u8; HASH_SIZE] {
@@ -178,14 +184,21 @@ pub fn compute_nullifier_from_fields(leaf: pallas::Base, root: pallas::Base) -> 
 ///
 /// 32-byte array
 #[inline]
-fn normalize_to_32_bytes(bytes: &[u8]) -> [u8; HASH_SIZE] {
-    if bytes.len() >= HASH_SIZE {
-        let mut arr = [0u8; HASH_SIZE];
-        arr.copy_from_slice(&bytes[..HASH_SIZE]);
-        arr
+const fn normalize_to_32_bytes(bytes: &[u8]) -> [u8; HASH_SIZE] {
+    let mut arr = [0u8; HASH_SIZE];
+    let len = bytes.len();
+    if len > HASH_SIZE {
+        let mut i = 0;
+        while i < HASH_SIZE {
+            arr[i] = bytes[i];
+            i += 1;
+        }
     } else {
-        let mut arr = [0u8; HASH_SIZE];
-        arr[..bytes.len()].copy_from_slice(bytes);
-        arr
+        let mut i = 0;
+        while i < len {
+            arr[i] = bytes[i];
+            i += 1;
+        }
     }
+    arr
 }
