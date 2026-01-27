@@ -6,9 +6,7 @@
 //! 2. Nullifier constraint: nullifier = H(leaf || root) using Poseidon hash
 //! 3. Public input constraints: instance values match advice values
 
-use halo2_gadgets::poseidon::primitives::{
-    self as poseidon, ConstantLength, P128Pow5T3 as PoseidonSpec,
-};
+use crate::utils::poseidon_hash;
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner, Value},
     plonk::{
@@ -49,8 +47,9 @@ impl SetMembershipCircuit {
     /// 2. Merkle path: leaf hashed with siblings produces the root
     ///
     /// Returns `true` if values are cryptographically consistent, `false` otherwise.
+    #[must_use]
     pub fn validate_consistency(&self) -> bool {
-        let computed_nullifier = compute_poseidon_hash(self.leaf, self.root);
+        let computed_nullifier = poseidon_hash(self.leaf, self.root);
         if computed_nullifier != self.nullifier {
             return false;
         }
@@ -67,9 +66,9 @@ impl SetMembershipCircuit {
 
         for sibling in &self.siblings {
             if index.is_multiple_of(2) {
-                current_hash = compute_poseidon_hash(current_hash, *sibling);
+                current_hash = poseidon_hash(current_hash, *sibling);
             } else {
-                current_hash = compute_poseidon_hash(*sibling, current_hash);
+                current_hash = poseidon_hash(*sibling, current_hash);
             }
             index /= 2;
         }
@@ -147,7 +146,7 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
         layouter.assign_region(
             || "verify nullifier",
             |mut region| {
-                let expected_nullifier = compute_poseidon_hash(self.leaf, self.root);
+                let expected_nullifier = poseidon_hash(self.leaf, self.root);
                 let expected_cell = region.assign_advice(
                     || "expected nullifier",
                     config.nullifier_col,
@@ -178,6 +177,7 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
 
 const BASE_U64: u64 = 256;
 
+#[inline]
 pub fn bytes_to_field(bytes: &[u8; 32]) -> pallas::Base {
     let mut value = pallas::Base::zero();
     let base = pallas::Base::from(BASE_U64);
@@ -249,6 +249,7 @@ impl SetMembershipProver {
         Ok(transcript.finalize())
     }
 
+    #[must_use]
     pub fn verify_proof(
         &self,
         params: &Params<vesta::Affine>,
@@ -265,9 +266,4 @@ impl SetMembershipProver {
 
         Ok(result.is_ok())
     }
-}
-
-fn compute_poseidon_hash(left: pallas::Base, right: pallas::Base) -> pallas::Base {
-    let inputs = [left, right];
-    poseidon::Hash::<_, PoseidonSpec, ConstantLength<2>, 3, 2>::init().hash(inputs)
 }

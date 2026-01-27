@@ -30,3 +30,4 @@ halo2_gadgets = "0.3"
 
 [dev-dependencies]
 halo2_proofs = { version = "0.3", features = ["dev-graph", "sanity-checks"] }
+tempfile = "3.8"

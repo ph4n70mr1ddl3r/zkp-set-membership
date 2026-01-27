@@ -94,8 +94,9 @@ fn main() -> Result<()> {
     let max_accounts_size = get_max_accounts_file_size();
     if content_size > max_accounts_size {
         return Err(anyhow::anyhow!(
-            "Accounts file too large: {} bytes (max {} bytes). Please reduce the number of accounts or split into multiple files.",
+            "Accounts file too large: {} bytes (max {} bytes). To fix: 1) Reduce the number of accounts, 2) Split into multiple files, or 3) Set ZKP_MAX_ACCOUNTS_FILE_SIZE environment variable (current max: {} bytes)",
             content_size,
+            max_accounts_size,
             max_accounts_size
         ));
     }
@@ -108,7 +109,7 @@ fn main() -> Result<()> {
 
     if addresses.is_empty() {
         return Err(anyhow::anyhow!(
-            "No valid addresses found in accounts file '{}'. Please ensure the file contains Ethereum addresses (one per line).",
+            "No valid addresses found in accounts file '{}'. Please ensure the file contains Ethereum addresses in hex format (one per line, e.g., 0x742d35Cc6634C0532925a3b844Bc454e4438f44e)",
             args.accounts_file.display()
         ));
     }
@@ -161,7 +162,7 @@ fn main() -> Result<()> {
     }
 
     let leaf_index = leaf_index.context(format!(
-        "Prover address '0x{}' not found in accounts file '{}'. Make sure your private key corresponds to an address in the set.",
+        "Prover address '0x{}' not found in accounts file '{}'. Ensure: 1) Your private key corresponds to an address in the set, 2) The address is in lowercase format, 3) The accounts file contains exactly one address per line",
         prover_address_str,
         args.accounts_file.display()
     ))?;

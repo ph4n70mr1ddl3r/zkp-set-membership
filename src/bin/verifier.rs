@@ -58,7 +58,7 @@ fn main() -> Result<()> {
     let max_proof_file_size = get_max_proof_file_size();
     if metadata.len() > max_proof_file_size {
         return Err(anyhow::anyhow!(
-            "Proof file too large: {} bytes (max {} bytes). This may indicate a corrupted or invalid proof file.",
+            "Proof file too large: {} bytes (max {} bytes). This may indicate a corrupted or invalid proof file. To fix: 1) Verify the proof file is valid, 2) Check if the proof was generated with compatible parameters, or 3) Set ZKP_MAX_PROOF_FILE_SIZE environment variable",
             metadata.len(),
             max_proof_file_size
         ));
@@ -82,9 +82,10 @@ fn main() -> Result<()> {
 
     if proof.zkp_proof.len() > get_max_zk_proof_size() {
         return Err(anyhow::anyhow!(
-            "ZK proof size exceeds limit: {} bytes (max {} bytes). The proof may be malformed or generated with incompatible parameters.",
+            "ZK proof size exceeds limit: {} bytes (max {} bytes). The proof may be malformed or generated with incompatible parameters. To fix: 1) Regenerate the proof with the current prover, 2) Verify CIRCUIT_K parameter matches between prover and verifier (current: {}), or 3) Set ZKP_MAX_ZK_PROOF_SIZE environment variable",
             proof.zkp_proof.len(),
-            get_max_zk_proof_size()
+            get_max_zk_proof_size(),
+            CIRCUIT_K
         ));
     }
 

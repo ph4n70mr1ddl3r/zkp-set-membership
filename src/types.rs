@@ -1,9 +1,7 @@
 //! Type definitions for the ZKP set membership system.
 
+use crate::utils::poseidon_hash;
 use anyhow::Result;
-use halo2_gadgets::poseidon::primitives::{
-    self as poseidon, ConstantLength, P128Pow5T3 as PoseidonSpec,
-};
 use pasta_curves::group::ff::PrimeField;
 use pasta_curves::pallas;
 use serde::{Deserialize, Serialize};
@@ -99,24 +97,22 @@ impl ZKProofOutput {
 }
 
 /// Compute nullifier as H(leaf || root) using Poseidon hash
+#[inline]
 pub fn compute_nullifier(leaf_bytes: &[u8], merkle_root: &[u8]) -> [u8; HASH_SIZE] {
-    // Convert bytes to field elements
     let leaf_field = bytes_to_field(leaf_bytes);
     let root_field = bytes_to_field(merkle_root);
-
-    // Compute Poseidon hash
     let hash_field = poseidon_hash(leaf_field, root_field);
-
-    // Convert back to bytes
     field_to_bytes(hash_field)
 }
 
 /// Compute nullifier directly from field elements
+#[inline]
 pub fn compute_nullifier_from_fields(leaf: pallas::Base, root: pallas::Base) -> pallas::Base {
     poseidon_hash(leaf, root)
 }
 
 /// Converts 32 bytes to a field element in the Pallas curve.
+#[inline]
 fn bytes_to_field(bytes: &[u8]) -> pallas::Base {
     // Take exactly 32 bytes or pad with zeros
     let bytes_32: [u8; 32] = if bytes.len() >= 32 {
@@ -135,17 +131,10 @@ fn bytes_to_field(bytes: &[u8]) -> pallas::Base {
 }
 
 /// Converts a field element back to 32 bytes
+#[inline]
 fn field_to_bytes(field: pallas::Base) -> [u8; HASH_SIZE] {
-    // For the pasta curves, we can use the to_repr() method
-    // This converts the field element to its canonical byte representation
-    let mut bytes = [0u8; 32];
+    let mut bytes = [0u8; HASH_SIZE];
     let repr = field.to_repr();
     bytes.copy_from_slice(repr.as_ref());
     bytes
-}
-
-/// Poseidon hash of two field elements
-fn poseidon_hash(left: pallas::Base, right: pallas::Base) -> pallas::Base {
-    let inputs = [left, right];
-    poseidon::Hash::<_, PoseidonSpec, ConstantLength<2>, 3, 2>::init().hash(inputs)
 }

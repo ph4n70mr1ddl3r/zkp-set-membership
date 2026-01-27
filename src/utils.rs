@@ -1,6 +1,10 @@
 //! Utility functions for hex validation and formatting.
 
 use anyhow::Result;
+use halo2_gadgets::poseidon::primitives::{
+    self as poseidon, ConstantLength, P128Pow5T3 as PoseidonSpec,
+};
+use pasta_curves::pallas;
 
 fn is_valid_hex_string(s: &str) -> bool {
     s.chars().all(|c| c.is_ascii_hexdigit())
@@ -76,6 +80,36 @@ pub fn validate_hex_string(input: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Poseidon hash of two field elements using P128Pow5T3 specification.
+///
+/// This is the optimized Poseidon hash for in-circuit use with 3 full rounds,
+/// 2 partial rounds, and constant length 2.
+///
+/// # Arguments
+///
+/// * `left` - First field element to hash
+/// * `right` - Second field element to hash
+///
+/// # Returns
+///
+/// The Poseidon hash of the two field elements
+///
+/// # Example
+///
+/// ```
+/// use zkp_set_membership::utils::poseidon_hash;
+/// use pasta_curves::pallas;
+///
+/// let left = pallas::Base::from(1);
+/// let right = pallas::Base::from(2);
+/// let hash = poseidon_hash(left, right);
+/// ```
+#[inline]
+pub fn poseidon_hash(left: pallas::Base, right: pallas::Base) -> pallas::Base {
+    let inputs = [left, right];
+    poseidon::Hash::<_, PoseidonSpec, ConstantLength<2>, 3, 2>::init().hash(inputs)
 }
 
 #[cfg(test)]
