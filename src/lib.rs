@@ -18,6 +18,7 @@
 //! ```
 
 pub mod circuit;
+pub mod config;
 pub mod merkle;
 pub mod types;
 pub mod utils;

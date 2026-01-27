@@ -38,6 +38,74 @@ pub struct SetMembershipCircuit {
 }
 
 impl SetMembershipCircuit {
+    pub fn builder() -> SetMembershipCircuitBuilder {
+        SetMembershipCircuitBuilder::default()
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct SetMembershipCircuitBuilder {
+    leaf: Option<pallas::Base>,
+    root: Option<pallas::Base>,
+    nullifier: Option<pallas::Base>,
+    siblings: Option<Vec<pallas::Base>>,
+    leaf_index: Option<usize>,
+}
+
+impl SetMembershipCircuitBuilder {
+    pub fn leaf(mut self, leaf: pallas::Base) -> Self {
+        self.leaf = Some(leaf);
+        self
+    }
+
+    pub fn root(mut self, root: pallas::Base) -> Self {
+        self.root = Some(root);
+        self
+    }
+
+    pub fn nullifier(mut self, nullifier: pallas::Base) -> Self {
+        self.nullifier = Some(nullifier);
+        self
+    }
+
+    pub fn siblings(mut self, siblings: Vec<pallas::Base>) -> Self {
+        self.siblings = Some(siblings);
+        self
+    }
+
+    pub fn leaf_index(mut self, leaf_index: usize) -> Self {
+        self.leaf_index = Some(leaf_index);
+        self
+    }
+
+    pub fn build(self) -> anyhow::Result<SetMembershipCircuit> {
+        let leaf = self
+            .leaf
+            .ok_or_else(|| anyhow::anyhow!("leaf is required"))?;
+        let root = self
+            .root
+            .ok_or_else(|| anyhow::anyhow!("root is required"))?;
+        let nullifier = self
+            .nullifier
+            .ok_or_else(|| anyhow::anyhow!("nullifier is required"))?;
+        let siblings = self
+            .siblings
+            .ok_or_else(|| anyhow::anyhow!("siblings is required"))?;
+        let leaf_index = self
+            .leaf_index
+            .ok_or_else(|| anyhow::anyhow!("leaf_index is required"))?;
+
+        Ok(SetMembershipCircuit {
+            leaf,
+            root,
+            nullifier,
+            siblings,
+            leaf_index,
+        })
+    }
+}
+
+impl SetMembershipCircuit {
     /// Validates that circuit values satisfy the expected cryptographic relationships.
     ///
     /// This performs client-side validation before proof generation.
