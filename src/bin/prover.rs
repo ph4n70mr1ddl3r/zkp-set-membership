@@ -7,10 +7,10 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 use zkp_set_membership::{
-    circuit::{bytes_to_field, SetMembershipCircuit, SetMembershipProver},
+    circuit::{SetMembershipCircuit, SetMembershipProver},
     merkle::MerkleTree,
     types::{compute_nullifier, compute_nullifier_from_fields, VerificationKey, ZKProofOutput},
-    utils::validate_and_strip_hex,
+    utils::{bytes_to_field, validate_and_strip_hex},
     CIRCUIT_K,
 };
 

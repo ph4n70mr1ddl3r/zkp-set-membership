@@ -4,9 +4,7 @@
 //! for efficient in-circuit verification. It supports proof generation and
 //! verification for set membership.
 
-use crate::utils::poseidon_hash;
-use pasta_curves::group::ff::PrimeField;
-use pasta_curves::pallas;
+use crate::utils::{bytes_to_field, field_to_bytes, poseidon_hash};
 use std::fmt;
 
 const HASH_SIZE: usize = 32;
@@ -51,22 +49,6 @@ fn hash_pair(left: &[u8; HASH_SIZE], right: &[u8; HASH_SIZE]) -> [u8; HASH_SIZE]
     let right_field = bytes_to_field(right);
     let hash_field = poseidon_hash(left_field, right_field);
     field_to_bytes(hash_field)
-}
-
-/// Converts 32 bytes to a field element in the Pallas curve.
-#[inline]
-fn bytes_to_field(bytes: &[u8; HASH_SIZE]) -> pallas::Base {
-    use crate::circuit::bytes_to_field;
-    bytes_to_field(bytes)
-}
-
-/// Converts a field element back to 32 bytes
-#[inline]
-fn field_to_bytes(field: pallas::Base) -> [u8; HASH_SIZE] {
-    let mut bytes = [0u8; HASH_SIZE];
-    let repr = field.to_repr();
-    bytes.copy_from_slice(repr.as_ref());
-    bytes
 }
 
 impl MerkleTree {

@@ -175,20 +175,6 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
     }
 }
 
-const BASE_U64: u64 = 256;
-
-#[inline]
-pub fn bytes_to_field(bytes: &[u8; 32]) -> pallas::Base {
-    let mut value = pallas::Base::zero();
-    let base = pallas::Base::from(BASE_U64);
-
-    for &byte in bytes.iter() {
-        value = value * base + pallas::Base::from(byte as u64);
-    }
-
-    value
-}
-
 pub struct SetMembershipProver {
     vk: Option<Arc<VerifyingKey<vesta::Affine>>>,
     pk: Option<Arc<ProvingKey<vesta::Affine>>>,
@@ -249,7 +235,6 @@ impl SetMembershipProver {
         Ok(transcript.finalize())
     }
 
-    #[must_use]
     pub fn verify_proof(
         &self,
         params: &Params<vesta::Affine>,

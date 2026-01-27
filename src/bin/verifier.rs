@@ -4,8 +4,9 @@ use halo2_proofs::poly::commitment::Params;
 use pasta_curves::vesta;
 use std::fs;
 use zkp_set_membership::{
-    circuit::{bytes_to_field, SetMembershipCircuit, SetMembershipProver},
+    circuit::{SetMembershipCircuit, SetMembershipProver},
     types::{ZKProofOutput, HASH_SIZE},
+    utils::bytes_to_field,
     CIRCUIT_K,
 };
 

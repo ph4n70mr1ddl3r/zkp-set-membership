@@ -28,6 +28,7 @@ mod merkle_tests;
 pub use circuit::{SetMembershipCircuit, SetMembershipProver};
 pub use merkle::{MerkleProof, MerkleTree};
 pub use types::ZKProofOutput;
+pub use utils::{bytes_to_field, field_to_bytes, poseidon_hash};
 
 /// Circuit parameter for Halo2 proving system.
 ///

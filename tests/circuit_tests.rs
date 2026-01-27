@@ -1,6 +1,7 @@
 use halo2_proofs::poly::commitment::Params;
 use pasta_curves::{pallas, vesta};
-use zkp_set_membership::circuit::{bytes_to_field, SetMembershipCircuit, SetMembershipProver};
+use zkp_set_membership::circuit::{SetMembershipCircuit, SetMembershipProver};
+use zkp_set_membership::utils::bytes_to_field;
 use zkp_set_membership::CIRCUIT_K;
 
 fn compute_poseidon_hash(left: pallas::Base, right: pallas::Base) -> pallas::Base {

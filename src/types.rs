@@ -1,8 +1,7 @@
 //! Type definitions for the ZKP set membership system.
 
-use crate::utils::poseidon_hash;
+use crate::utils::{bytes_to_field, field_to_bytes, poseidon_hash};
 use anyhow::Result;
-use pasta_curves::group::ff::PrimeField;
 use pasta_curves::pallas;
 use serde::{Deserialize, Serialize};
 
@@ -96,26 +95,61 @@ impl ZKProofOutput {
     }
 }
 
-/// Compute nullifier as H(leaf || root) using Poseidon hash
+/// Compute nullifier as H(leaf || root) using Poseidon hash.
+///
+/// This function takes byte slices and normalizes them to 32 bytes before
+/// computing the Poseidon hash, which serves as a deterministic nullifier
+/// to prevent proof replay attacks.
+///
+/// # Arguments
+///
+/// * `leaf_bytes` - Leaf value as bytes (will be normalized to 32 bytes)
+/// * `merkle_root` - Merkle root as bytes (will be normalized to 32 bytes)
+///
+/// # Returns
+///
+/// 32-byte nullifier hash
 #[inline]
 pub fn compute_nullifier(leaf_bytes: &[u8], merkle_root: &[u8]) -> [u8; HASH_SIZE] {
-    let leaf_field = bytes_to_field(leaf_bytes);
-    let root_field = bytes_to_field(merkle_root);
+    let leaf_field = bytes_to_field(&normalize_to_32_bytes(leaf_bytes));
+    let root_field = bytes_to_field(&normalize_to_32_bytes(merkle_root));
     let hash_field = poseidon_hash(leaf_field, root_field);
     field_to_bytes(hash_field)
 }
 
-/// Compute nullifier directly from field elements
+/// Compute nullifier directly from field elements.
+///
+/// This is the field-level version of compute_nullifier for use when values
+/// are already in field representation.
+///
+/// # Arguments
+///
+/// * `leaf` - Leaf value as field element
+/// * `root` - Merkle root as field element
+///
+/// # Returns
+///
+/// Nullifier as field element
 #[inline]
 pub fn compute_nullifier_from_fields(leaf: pallas::Base, root: pallas::Base) -> pallas::Base {
     poseidon_hash(leaf, root)
 }
 
-/// Converts 32 bytes to a field element in the Pallas curve.
+/// Converts a variable-length byte slice to 32 bytes.
+///
+/// If the input is >= 32 bytes, takes the first 32 bytes.
+/// If the input is < 32 bytes, pads with zeros on the right.
+///
+/// # Arguments
+///
+/// * `bytes` - Byte slice to normalize
+///
+/// # Returns
+///
+/// 32-byte array
 #[inline]
-fn bytes_to_field(bytes: &[u8]) -> pallas::Base {
-    // Take exactly 32 bytes or pad with zeros
-    let bytes_32: [u8; 32] = if bytes.len() >= 32 {
+fn normalize_to_32_bytes(bytes: &[u8]) -> [u8; 32] {
+    if bytes.len() >= 32 {
         let mut arr = [0u8; 32];
         arr.copy_from_slice(&bytes[..32]);
         arr
@@ -123,18 +157,5 @@ fn bytes_to_field(bytes: &[u8]) -> pallas::Base {
         let mut arr = [0u8; 32];
         arr[..bytes.len()].copy_from_slice(bytes);
         arr
-    };
-
-    // Use the same conversion as the circuit module
-    use crate::circuit::bytes_to_field as circuit_bytes_to_field;
-    circuit_bytes_to_field(&bytes_32)
-}
-
-/// Converts a field element back to 32 bytes
-#[inline]
-fn field_to_bytes(field: pallas::Base) -> [u8; HASH_SIZE] {
-    let mut bytes = [0u8; HASH_SIZE];
-    let repr = field.to_repr();
-    bytes.copy_from_slice(repr.as_ref());
-    bytes
+    }
 }

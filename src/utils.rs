@@ -4,6 +4,7 @@ use anyhow::Result;
 use halo2_gadgets::poseidon::primitives::{
     self as poseidon, ConstantLength, P128Pow5T3 as PoseidonSpec,
 };
+use pasta_curves::group::ff::PrimeField;
 use pasta_curves::pallas;
 
 fn is_valid_hex_string(s: &str) -> bool {
@@ -80,6 +81,48 @@ pub fn validate_hex_string(input: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+const BASE_U64: u64 = 256;
+
+/// Converts 32 bytes to a field element in the Pallas curve.
+///
+/// Uses base-256 encoding for deterministic conversion between bytes and field elements.
+///
+/// # Arguments
+///
+/// * `bytes` - 32-byte array to convert
+///
+/// # Returns
+///
+/// Field element in the Pallas curve
+#[inline]
+pub fn bytes_to_field(bytes: &[u8; 32]) -> pallas::Base {
+    let mut value = pallas::Base::zero();
+    let base = pallas::Base::from(BASE_U64);
+
+    for &byte in bytes.iter() {
+        value = value * base + pallas::Base::from(byte as u64);
+    }
+
+    value
+}
+
+/// Converts a field element to 32 bytes.
+///
+/// # Arguments
+///
+/// * `field` - Field element to convert
+///
+/// # Returns
+///
+/// 32-byte array representation of the field element
+#[inline]
+pub fn field_to_bytes(field: pallas::Base) -> [u8; 32] {
+    let mut bytes = [0u8; 32];
+    let repr = field.to_repr();
+    bytes.copy_from_slice(repr.as_ref());
+    bytes
 }
 
 /// Poseidon hash of two field elements using P128Pow5T3 specification.

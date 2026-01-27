@@ -13,7 +13,7 @@ fn test_end_to_end_prover_verifier_workflow() {
     let wallet2 = LocalWallet::new(&mut rand::thread_rng());
     let wallet3 = LocalWallet::new(&mut rand::thread_rng());
 
-    let addresses = vec![
+    let addresses = [
         format!("{:x}", wallet1.address()),
         format!("{:x}", wallet2.address()),
         format!("{:x}", wallet3.address()),
@@ -80,7 +80,7 @@ fn test_replay_attack_prevention() {
     let wallet2 = LocalWallet::new(&mut rand::thread_rng());
     let wallet3 = LocalWallet::new(&mut rand::thread_rng());
 
-    let addresses = vec![
+    let addresses = [
         format!("{:x}", wallet1.address()),
         format!("{:x}", wallet2.address()),
         format!("{:x}", wallet3.address()),
