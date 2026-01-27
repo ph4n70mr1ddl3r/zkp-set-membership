@@ -82,9 +82,11 @@ impl MerkleTree {
     /// # Note
     /// For optimal performance, the number of leaves should be a power of 2.
     /// If not, the tree will handle it by propagating odd nodes up.
-    /// Empty leaves vector is allowed and will produce a zero root.
     #[must_use = "The Merkle tree should be used for further operations"]
     pub fn new(leaves: Vec<[u8; HASH_SIZE]>) -> Result<Self, anyhow::Error> {
+        if leaves.is_empty() {
+            return Err(anyhow::anyhow!("Empty Merkle trees are not allowed"));
+        }
         if leaves.len() > MAX_LEAVES {
             return Err(anyhow::anyhow!(
                 "Number of leaves {} exceeds maximum allowed {}",
@@ -97,10 +99,6 @@ impl MerkleTree {
     }
 
     fn compute_root(leaves: &[[u8; HASH_SIZE]]) -> [u8; HASH_SIZE] {
-        if leaves.is_empty() {
-            return [0u8; HASH_SIZE];
-        }
-
         let mut level = leaves.to_vec();
 
         while level.len() > 1 {

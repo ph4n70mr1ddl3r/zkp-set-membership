@@ -70,7 +70,7 @@ impl ZKProofOutput {
         let current_timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs())
-            .unwrap_or(0);
+            .map_err(|e| anyhow::anyhow!("System clock unavailable: {}", e))?;
         debug!("Current timestamp: {}", current_timestamp);
 
         if self.timestamp > current_timestamp + Self::TIMESTAMP_TOLERANCE_SECS {
@@ -222,13 +222,14 @@ pub fn compute_nullifier_from_fields(leaf: pallas::Base, root: pallas::Base) -> 
 ///
 /// 32-byte array
 #[inline]
-const fn normalize_to_32_bytes(bytes: &[u8]) -> [u8; HASH_SIZE] {
+pub fn normalize_to_32_bytes(bytes: &[u8]) -> [u8; HASH_SIZE] {
+    assert!(
+        bytes.len() <= HASH_SIZE,
+        "Input must be at most {} bytes, got {}",
+        HASH_SIZE,
+        bytes.len()
+    );
     let mut arr = [0u8; HASH_SIZE];
-    let len = bytes.len();
-    let mut i = 0;
-    while i < len {
-        arr[i] = bytes[i];
-        i += 1;
-    }
+    arr[..bytes.len()].copy_from_slice(bytes);
     arr
 }

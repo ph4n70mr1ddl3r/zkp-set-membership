@@ -4,7 +4,8 @@ use halo2_proofs::poly::commitment::Params;
 use log::{debug, error, info};
 use pasta_curves::vesta;
 use std::fs;
-use std::path::Path;
+use std::io::{BufRead, BufReader, Seek, Write};
+use std::path::{Path, PathBuf};
 use zkp_set_membership::{
     circuit::SetMembershipProver,
     types::{ZKProofOutput, HASH_SIZE},
@@ -52,22 +53,42 @@ fn bytes_to_fixed_array(bytes: &[u8], name: &str) -> Result<[u8; HASH_SIZE]> {
 }
 
 fn check_and_add_nullifier(nullifier_file: &Path, nullifier: &str) -> Result<()> {
-    let mut content = String::new();
-    if nullifier_file.exists() {
-        content = fs::read_to_string(nullifier_file).context("Failed to read nullifier file")?;
-        if content.lines().any(|line| line.trim() == nullifier) {
+    let normalized_nullifier = nullifier.trim().to_lowercase();
+
+    let file = fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(nullifier_file)
+        .context("Failed to open nullifier file")?;
+
+    let reader = BufReader::new(&file);
+    for line in reader.lines() {
+        let line = line.context("Failed to read line from nullifier file")?;
+        if line.trim().to_lowercase() == normalized_nullifier {
             return Err(anyhow::anyhow!("Nullifier already exists in file"));
         }
     }
 
-    if !content.is_empty() && !content.ends_with('\n') {
-        content.push('\n');
+    let mut writer = std::io::BufWriter::new(&file);
+    writer
+        .seek(std::io::SeekFrom::End(0))
+        .context("Failed to seek to end of file")?;
+
+    let pos = writer
+        .stream_position()
+        .context("Failed to get file position")?;
+
+    if pos > 0 {
+        writer.write_all(b"\n").context("Failed to write newline")?;
     }
 
-    content.push_str(nullifier);
-    content.push('\n');
+    writer
+        .write_all(normalized_nullifier.as_bytes())
+        .context("Failed to write nullifier")?;
+    writer.write_all(b"\n").context("Failed to write newline")?;
+    writer.flush().context("Failed to flush writer")?;
 
-    fs::write(nullifier_file, content).context("Failed to write nullifier file")?;
     Ok(())
 }
 
@@ -135,7 +156,12 @@ fn main() -> Result<()> {
     println!("Verifying ZK proof...");
     let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
 
-    let nullifier_file = args.proof_file.replace(".json", "_nullifiers.txt");
+    let proof_path = PathBuf::from(&args.proof_file);
+    let mut nullifier_path = proof_path.clone();
+    nullifier_path.set_extension("nullifiers.txt");
+    let nullifier_file = nullifier_path
+        .to_str()
+        .context("Failed to convert nullifier path to string")?;
     debug!("Nullifier file: {nullifier_file}");
 
     let mut prover = SetMembershipProver::new();
@@ -145,7 +171,6 @@ fn main() -> Result<()> {
         .generate_and_cache_keys(&params)
         .context("Failed to generate verification keys")?;
 
-    let nullifier_path = Path::new(&nullifier_file);
     info!("Replay attack check passed");
     let leaf_hex = &proof.verification_key.leaf;
     let root_hex = &proof.merkle_root;
@@ -199,10 +224,14 @@ fn main() -> Result<()> {
             println!("This nullifier can be used to prevent double-spending or");
             println!("reuse of same proof while maintaining privacy.");
 
-            check_and_add_nullifier(nullifier_path, &proof.nullifier)
-                .with_context(|| format!("Failed to record nullifier to: {}", nullifier_file))?;
-            info!("Nullifier recorded to: {nullifier_file}");
-            println!("\nNullifier recorded to: {nullifier_file}");
+            check_and_add_nullifier(&nullifier_path, &proof.nullifier).with_context(|| {
+                format!(
+                    "Failed to record nullifier to: {}",
+                    nullifier_path.display()
+                )
+            })?;
+            info!("Nullifier recorded to: {}", nullifier_path.display());
+            println!("\nNullifier recorded to: {}", nullifier_path.display());
             Ok(())
         }
         Err(e) => {

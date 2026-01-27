@@ -1,10 +1,19 @@
 //! ZK-SNARK circuit for set membership proof with cryptographic constraints.
 //!
-//! This circuit implements proper cryptographic constraints for zero-knowledge
-//! set membership verification. It enforces:
-//! 1. Merkle path verification: leaf + siblings computes to root
-//! 2. Nullifier constraint: nullifier = H(leaf || root) using Poseidon hash
-//! 3. Public input constraints: instance values match advice values
+//! WARNING: This circuit currently performs client-side cryptographic computation
+//! and only constrains equality, which does NOT provide zero-knowledge guarantees.
+//! A proper implementation requires adding Poseidon hash gates and Merkle path
+//! verification gates directly in the circuit synthesis.
+//!
+//! This is a CRITICAL security limitation that must be addressed before production use.
+//!
+//! For a complete implementation, see:
+//! https://github.com/zcash/halo2/blob/main/halo2_gadgets/src/poseidon.rs
+//!
+//! Current behavior:
+//! - Merkle path verification: computed client-side and equality constrained
+//! - Nullifier constraint: computed client-side and equality constrained
+//! - Public input constraints: instance values match advice values
 
 use crate::utils::poseidon_hash;
 use halo2_proofs::{
@@ -178,6 +187,13 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
         config: Self::Config,
         mut layouter: impl Layouter<pallas::Base>,
     ) -> Result<(), Error> {
+        // CRITICAL SECURITY WARNING: This circuit performs client-side computation
+        // and only constrains equality. It does NOT enforce cryptographic constraints
+        // in-circuit. A malicious prover can provide arbitrary values that will verify.
+        //
+        // To fix this, implement proper Poseidon hash gates and Merkle path
+        // verification gates using halo2_gadgets. See documentation above.
+
         let (leaf_cell, root_cell, nullifier_cell) = layouter.assign_region(
             || "assign values",
             |mut region| {
