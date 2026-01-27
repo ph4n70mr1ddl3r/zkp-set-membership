@@ -77,7 +77,7 @@ fn main() -> Result<()> {
     let proof: ZKProofOutput =
         serde_json::from_str(&proof_content).context("Failed to parse proof JSON")?;
 
-    proof.validate().context("Proof validation failed")?;
+    proof.validate().context("Proof validation failed. The proof structure is invalid or contains inconsistent cryptographic data.")?;
     info!("Proof validation passed");
 
     println!("Proof details:");

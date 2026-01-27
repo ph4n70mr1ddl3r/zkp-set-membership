@@ -99,6 +99,7 @@ impl MerkleTree {
     ///
     /// # Returns
     /// `Some(MerkleProof)` if the index is valid, `None` otherwise
+    #[must_use]
     pub fn generate_proof(&self, leaf_index: usize) -> Option<MerkleProof> {
         if leaf_index >= self.leaves.len() {
             return None;

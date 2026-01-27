@@ -31,13 +31,19 @@ impl ZKProofOutput {
     /// Validates the proof output structure and cryptographic consistency.
     pub fn validate(&self) -> Result<()> {
         if self.merkle_root.is_empty() {
-            return Err(anyhow::anyhow!("Merkle root cannot be empty"));
+            return Err(anyhow::anyhow!(
+                "Merkle root cannot be empty. Expected a 32-byte hex string."
+            ));
         }
         if self.nullifier.is_empty() {
-            return Err(anyhow::anyhow!("Nullifier cannot be empty"));
+            return Err(anyhow::anyhow!(
+                "Nullifier cannot be empty. Expected a 32-byte hex string."
+            ));
         }
         if self.zkp_proof.is_empty() {
-            return Err(anyhow::anyhow!("ZK proof cannot be empty"));
+            return Err(anyhow::anyhow!(
+                "ZK proof cannot be empty. The proof data is missing."
+            ));
         }
 
         let current_timestamp = std::time::SystemTime::now()
@@ -50,7 +56,7 @@ impl ZKProofOutput {
 
         if self.timestamp > current_timestamp + TIMESTAMP_TOLERANCE_SECS {
             return Err(anyhow::anyhow!(
-                "Timestamp is too far in the future: {} (current: {}, tolerance: {}s)",
+                "Timestamp is too far in the future: {} (current: {}, tolerance: {}s). Please check system clock and proof timestamp.",
                 self.timestamp,
                 current_timestamp,
                 TIMESTAMP_TOLERANCE_SECS
@@ -59,7 +65,7 @@ impl ZKProofOutput {
 
         if current_timestamp > self.timestamp + TIMESTAMP_MAX_AGE_SECS {
             return Err(anyhow::anyhow!(
-                "Timestamp is too old: {} (current: {}, max age: {}s)",
+                "Timestamp is too old: {} (current: {}, max age: {}s). This proof may be expired. Please generate a fresh proof.",
                 self.timestamp,
                 current_timestamp,
                 TIMESTAMP_MAX_AGE_SECS
@@ -67,25 +73,43 @@ impl ZKProofOutput {
         }
 
         let leaf_hex = &self.verification_key.leaf;
-        let leaf_bytes = hex::decode(leaf_hex)
-            .map_err(|e| anyhow::anyhow!("Invalid leaf hex '{}': {}", leaf_hex, e))?;
+        let leaf_bytes = hex::decode(leaf_hex).map_err(|e| {
+            anyhow::anyhow!(
+                "Invalid leaf hex '{}': {}. Expected 32-byte hex string.",
+                leaf_hex,
+                e
+            )
+        })?;
 
         if leaf_bytes.len() != HASH_SIZE {
-            return Err(anyhow::anyhow!("Leaf must be {} bytes", HASH_SIZE));
+            return Err(anyhow::anyhow!(
+                "Leaf must be exactly {} bytes, but got {} bytes. Please check the leaf value in the verification key.",
+                HASH_SIZE,
+                leaf_bytes.len()
+            ));
         }
 
-        let root_bytes = hex::decode(&self.merkle_root)
-            .map_err(|e| anyhow::anyhow!("Invalid merkle root hex: {}", e))?;
+        let root_bytes = hex::decode(&self.merkle_root).map_err(|e| {
+            anyhow::anyhow!(
+                "Invalid merkle root hex '{}': {}. Expected 32-byte hex string.",
+                self.merkle_root,
+                e
+            )
+        })?;
 
         if root_bytes.len() != HASH_SIZE {
-            return Err(anyhow::anyhow!("Root must be {} bytes", HASH_SIZE));
+            return Err(anyhow::anyhow!(
+                "Root must be exactly {} bytes, but got {} bytes. Please check the Merkle root value.",
+                HASH_SIZE,
+                root_bytes.len()
+            ));
         }
 
         // Verify nullifier matches expected value
         let expected_nullifier = compute_nullifier(&leaf_bytes, &root_bytes);
         if self.nullifier != hex::encode(expected_nullifier) {
             return Err(anyhow::anyhow!(
-                "Nullifier mismatch: expected {}, got {}",
+                "Nullifier mismatch: expected {}, got {}. The nullifier must equal H(leaf || root). This indicates corrupted or tampered proof data.",
                 hex::encode(expected_nullifier),
                 self.nullifier
             ));
@@ -109,6 +133,7 @@ impl ZKProofOutput {
 /// # Returns
 ///
 /// 32-byte nullifier hash
+#[must_use]
 #[inline]
 pub fn compute_nullifier(leaf_bytes: &[u8], merkle_root: &[u8]) -> [u8; HASH_SIZE] {
     let leaf_field = bytes_to_field(&normalize_to_32_bytes(leaf_bytes));
@@ -130,6 +155,7 @@ pub fn compute_nullifier(leaf_bytes: &[u8], merkle_root: &[u8]) -> [u8; HASH_SIZ
 /// # Returns
 ///
 /// Nullifier as field element
+#[must_use]
 #[inline]
 pub fn compute_nullifier_from_fields(leaf: pallas::Base, root: pallas::Base) -> pallas::Base {
     poseidon_hash(leaf, root)
@@ -148,13 +174,13 @@ pub fn compute_nullifier_from_fields(leaf: pallas::Base, root: pallas::Base) -> 
 ///
 /// 32-byte array
 #[inline]
-fn normalize_to_32_bytes(bytes: &[u8]) -> [u8; 32] {
-    if bytes.len() >= 32 {
-        let mut arr = [0u8; 32];
-        arr.copy_from_slice(&bytes[..32]);
+fn normalize_to_32_bytes(bytes: &[u8]) -> [u8; HASH_SIZE] {
+    if bytes.len() >= HASH_SIZE {
+        let mut arr = [0u8; HASH_SIZE];
+        arr.copy_from_slice(&bytes[..HASH_SIZE]);
         arr
     } else {
-        let mut arr = [0u8; 32];
+        let mut arr = [0u8; HASH_SIZE];
         arr[..bytes.len()].copy_from_slice(bytes);
         arr
     }
