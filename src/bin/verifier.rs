@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use halo2_proofs::poly::commitment::Params;
+use log::{debug, error, info};
 use pasta_curves::vesta;
 use std::fs;
 use zkp_set_membership::{
@@ -50,8 +51,11 @@ fn bytes_to_fixed_array(bytes: &[u8], name: &str) -> Result<[u8; HASH_SIZE]> {
 }
 
 fn main() -> Result<()> {
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+
     let args = Args::parse();
 
+    info!("Loading proof from: {}", args.proof_file);
     println!("Loading proof from: {}", args.proof_file);
 
     let metadata = fs::metadata(&args.proof_file).context("Failed to read proof file metadata")?;
@@ -68,11 +72,13 @@ fn main() -> Result<()> {
     let proof_content =
         fs::read_to_string(&args.proof_file).context("Failed to read proof file")?;
 
+    info!("Parsing proof JSON...");
     println!("Parsing proof JSON...");
     let proof: ZKProofOutput =
         serde_json::from_str(&proof_content).context("Failed to parse proof JSON")?;
 
     proof.validate().context("Proof validation failed")?;
+    info!("Proof validation passed");
 
     println!("Proof details:");
     println!("  Merkle Root: {}", proof.merkle_root);
@@ -80,6 +86,10 @@ fn main() -> Result<()> {
     println!("  Leaf Index: {}", proof.leaf_index);
     println!("  Timestamp: {}", proof.timestamp);
     println!("  ZK Proof Size: {} bytes", proof.zkp_proof.len());
+    debug!(
+        "Proof details: merkle_root={}, nullifier={}, leaf_index={}, timestamp={}",
+        proof.merkle_root, proof.nullifier, proof.leaf_index, proof.timestamp
+    );
 
     if proof.zkp_proof.len() > get_max_zk_proof_size() {
         return Err(anyhow::anyhow!(
@@ -90,10 +100,19 @@ fn main() -> Result<()> {
         ));
     }
 
+    info!("Verifying ZK proof...");
     println!("Verifying ZK proof...");
     let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
 
     let nullifier_file = args.proof_file.replace(".json", "_nullifiers.txt");
+    debug!("Nullifier file: {}", nullifier_file);
+
+    let mut prover = SetMembershipProver::new();
+    info!("Generating/caching ZK-SNARK keys");
+    println!("Generating ZK-SNARK keys...");
+    prover
+        .generate_and_cache_keys(&params)
+        .context("Failed to generate verification keys")?;
     let has_replay = if std::path::Path::new(&nullifier_file).exists() {
         let existing_nullifiers = fs::read_to_string(&nullifier_file)
             .with_context(|| format!("Failed to read nullifier file: {}", nullifier_file))?;
@@ -105,6 +124,10 @@ fn main() -> Result<()> {
     };
 
     if has_replay {
+        error!(
+            "Proof replay detected: nullifier {} has already been used. See {} for details.",
+            proof.nullifier, nullifier_file
+        );
         return Err(anyhow::anyhow!(
             "Proof replay detected: nullifier {} has already been used. See {} for details.",
             proof.nullifier,
@@ -112,6 +135,7 @@ fn main() -> Result<()> {
         ));
     }
 
+    info!("Replay attack check passed");
     let leaf_hex = proof.verification_key.leaf.clone();
     let root_hex = proof.merkle_root.clone();
     let nullifier_hex = proof.nullifier.clone();
@@ -175,14 +199,12 @@ fn main() -> Result<()> {
     // Public inputs for verification
     let public_inputs = vec![leaf_base, root_base, nullifier_base];
 
-    let mut prover = SetMembershipProver::new();
-    prover
-        .generate_and_cache_keys(&params)
-        .context("Failed to generate verification keys")?;
+    info!("Verifying ZK proof with public inputs");
     let verification_result = prover.verify_proof(&params, &proof.zkp_proof, public_inputs);
 
     match verification_result {
         Ok(_) => {
+            info!("Proof verification PASSED");
             println!("\n✓ Proof verification PASSED!");
             println!("The prover has demonstrated knowledge of a private key");
             println!("corresponding to an Ethereum address in set.");
@@ -192,10 +214,12 @@ fn main() -> Result<()> {
 
             fs::write(&nullifier_file, format!("{}\n", proof.nullifier))
                 .with_context(|| format!("Failed to record nullifier to: {}", nullifier_file))?;
+            info!("Nullifier recorded to: {}", nullifier_file);
             println!("\nNullifier recorded to: {}", nullifier_file);
             Ok(())
         }
         Err(e) => {
+            error!("Proof verification FAILED: {}", e);
             println!("\n✗ Proof verification FAILED!");
             println!("Error: {}", e);
             Err(anyhow::anyhow!("Proof verification failed"))

@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use ethers::signers::{LocalWallet, Signer};
 use halo2_proofs::poly::commitment::Params;
+use log::{debug, info};
 use pasta_curves::vesta;
 use std::fs;
 use std::path::PathBuf;
@@ -83,13 +84,15 @@ fn validate_private_key(private_key: &str) -> Result<()> {
 }
 
 fn main() -> Result<()> {
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+
     let args = Args::parse();
 
     let private_key = match args.private_key {
         Some(key) => key,
         None => match std::env::var("ZKP_PRIVATE_KEY") {
             Ok(key) => {
-                eprintln!("Using private key from ZKP_PRIVATE_KEY environment variable");
+                info!("Using private key from ZKP_PRIVATE_KEY environment variable");
                 key
             }
             Err(_) => {
@@ -100,6 +103,7 @@ fn main() -> Result<()> {
         },
     };
 
+    info!("Loading accounts from: {:?}", args.accounts_file);
     println!("Loading accounts from: {:?}", args.accounts_file);
 
     let accounts_content =
@@ -129,18 +133,25 @@ fn main() -> Result<()> {
         ));
     }
 
+    info!(
+        "Loaded {} addresses from {}",
+        addresses.len(),
+        args.accounts_file.display()
+    );
     println!(
         "Loaded {} addresses from {}",
         addresses.len(),
         args.accounts_file.display()
     );
-    println!("Validating private key...");
+
+    debug!("Validating private key...");
     validate_private_key(&private_key)?;
 
-    println!("Parsing private key...");
+    info!("Parsing private key...");
     let wallet: LocalWallet = private_key.parse().context("Failed to parse private key")?;
     let prover_address = wallet.address();
     let prover_address_str = format!("{:x}", prover_address);
+    info!("Prover address: 0x{}", prover_address_str);
     println!("Prover address: 0x{}", prover_address_str);
 
     let normalized_addresses =
@@ -169,6 +180,7 @@ fn main() -> Result<()> {
                 ));
             }
             leaf_index = Some(i);
+            info!("Found prover address at index {}", i);
             println!("Found prover address at index {}", i);
         }
     }
@@ -179,10 +191,13 @@ fn main() -> Result<()> {
         args.accounts_file.display()
     ))?;
 
+    info!("Building Merkle tree with {} leaves", leaf_hashes.len());
     println!("Building Merkle tree...");
     let merkle_tree = MerkleTree::new(leaf_hashes.clone());
     println!("Merkle root: {}", hex::encode(merkle_tree.root));
+    debug!("Merkle root: {}", hex::encode(merkle_tree.root));
 
+    info!("Generating Merkle proof for leaf index {}", leaf_index);
     println!("Generating Merkle proof...");
     let merkle_proof = merkle_tree
         .generate_proof(leaf_index)
@@ -191,10 +206,13 @@ fn main() -> Result<()> {
     let leaf_hash = merkle_proof.leaf;
     let root_hash = merkle_proof.root;
 
+    info!("Computing deterministic nullifier");
     println!("Computing deterministic nullifier...");
     let nullifier = compute_nullifier(&leaf_hash, &root_hash);
     println!("Nullifier: {}", hex::encode(nullifier));
+    debug!("Nullifier: {}", hex::encode(nullifier));
 
+    info!("Creating ZK-SNARK circuit");
     println!("Creating ZK-SNARK circuit...");
 
     // Convert actual values to field elements
@@ -215,10 +233,13 @@ fn main() -> Result<()> {
     // Public inputs for verification
     let public_inputs = vec![leaf_base, root_base, nullifier_base];
 
+    info!("Generating ZK proof (this may take a while)...");
     println!("Generating ZK proof (this may take a while)...");
     let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
 
     let mut prover = SetMembershipProver::new();
+    info!("Generating/caching ZK-SNARK keys");
+    println!("Generating ZK-SNARK keys...");
     prover
         .generate_and_cache_keys(&params)
         .context("Failed to generate keys")?;
@@ -227,6 +248,10 @@ fn main() -> Result<()> {
         .generate_proof(&params, circuit, public_inputs)
         .context("Failed to create proof")?;
 
+    info!(
+        "ZK proof generated successfully, size: {} bytes",
+        zkp_proof.len()
+    );
     println!("ZK proof generated, size: {} bytes", zkp_proof.len());
 
     let verification_key = VerificationKey {
@@ -242,6 +267,8 @@ fn main() -> Result<()> {
         .context("System time is before Unix epoch")?
         .as_secs();
 
+    debug!("Proof timestamp: {}", timestamp);
+
     let output = ZKProofOutput {
         merkle_root: hex::encode(merkle_tree.root),
         nullifier: hex::encode(nullifier),
@@ -252,6 +279,7 @@ fn main() -> Result<()> {
         merkle_siblings,
     };
 
+    info!("Writing proof to: {:?}", args.output);
     println!("Writing proof to: {:?}", args.output);
 
     let parent_dir = args

@@ -18,6 +18,7 @@ use halo2_proofs::{
 };
 use pasta_curves::{pallas, vesta};
 use std::sync::Arc;
+use std::sync::OnceLock;
 
 #[derive(Debug, Clone, Copy)]
 pub struct SetMembershipConfig {
@@ -180,6 +181,13 @@ pub struct SetMembershipProver {
     pk: Option<Arc<ProvingKey<vesta::Affine>>>,
 }
 
+type CachedKeys = (
+    Arc<VerifyingKey<vesta::Affine>>,
+    Arc<ProvingKey<vesta::Affine>>,
+);
+
+static CACHED_KEYS: OnceLock<CachedKeys> = OnceLock::new();
+
 impl Default for SetMembershipProver {
     fn default() -> Self {
         Self::new()
@@ -202,12 +210,23 @@ impl SetMembershipProver {
     }
 
     pub fn generate_and_cache_keys(&mut self, params: &Params<vesta::Affine>) -> Result<(), Error> {
+        if let Some((vk, pk)) = CACHED_KEYS.get() {
+            self.vk = Some(vk.clone());
+            self.pk = Some(pk.clone());
+            return Ok(());
+        }
+
         let circuit = SetMembershipCircuit::default();
         let vk = keygen_vk(params, &circuit)?;
         let pk = keygen_pk(params, vk.clone(), &circuit)?;
 
-        self.vk = Some(Arc::new(vk));
-        self.pk = Some(Arc::new(pk));
+        let vk = Arc::new(vk);
+        let pk = Arc::new(pk);
+
+        let _ = CACHED_KEYS.set((vk.clone(), pk.clone()));
+
+        self.vk = Some(vk);
+        self.pk = Some(pk);
         Ok(())
     }
 

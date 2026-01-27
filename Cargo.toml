@@ -27,6 +27,8 @@ ethers = "2.0"
 anyhow = "1.0"
 rand = "0.8"
 halo2_gadgets = "0.3"
+log = "0.4"
+env_logger = "0.10"
 
 [dev-dependencies]
 halo2_proofs = { version = "0.3", features = ["dev-graph", "sanity-checks"] }
