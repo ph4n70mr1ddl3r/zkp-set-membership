@@ -32,8 +32,8 @@ type PoseidonChipType = PoseidonChip<pallas::Base, 3, 2>;
 
 #[derive(Debug, Clone)]
 pub struct SetMembershipConfig {
-    pub advice: [Column<Advice>; 10],
-    pub fixed: [Column<Fixed>; 3],
+    pub advice: [Column<Advice>; 15],
+    pub fixed: [Column<Fixed>; 6],
     pub instance: Column<Instance>,
     pub poseidon_config: <PoseidonChipType as halo2_proofs::circuit::Chip<pallas::Base>>::Config,
 }
@@ -50,6 +50,12 @@ pub struct SetMembershipCircuit {
 impl SetMembershipCircuit {
     pub fn builder() -> SetMembershipCircuitBuilder {
         SetMembershipCircuitBuilder::default()
+    }
+
+    pub fn validate_consistency(&self) -> bool {
+        use crate::utils::poseidon_hash;
+        let expected_nullifier = poseidon_hash(self.leaf, self.root);
+        self.nullifier == expected_nullifier
     }
 }
 
@@ -135,9 +141,17 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
             meta.advice_column(),
             meta.advice_column(),
             meta.advice_column(),
+            meta.advice_column(),
+            meta.advice_column(),
+            meta.advice_column(),
+            meta.advice_column(),
+            meta.advice_column(),
         ];
 
         let fixed = [
+            meta.fixed_column(),
+            meta.fixed_column(),
+            meta.fixed_column(),
             meta.fixed_column(),
             meta.fixed_column(),
             meta.fixed_column(),
@@ -150,10 +164,14 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
             meta.enable_equality(*col);
         }
 
+        for col in &fixed {
+            meta.enable_constant(*col);
+        }
+
         let state = [advice[0], advice[1], advice[2]];
         let partial_sbox = advice[3];
         let rc_a = [fixed[0], fixed[1], fixed[2]];
-        let rc_b = fixed;
+        let rc_b = [fixed[3], fixed[4], fixed[5]];
 
         let poseidon_config =
             PoseidonChipType::configure::<PoseidonSpec>(meta, state, partial_sbox, rc_a, rc_b);
@@ -202,33 +220,8 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
             },
         )?;
 
-        layouter.constrain_instance(leaf_cell.cell(), config.instance, 0)?;
-        layouter.constrain_instance(root_cell.cell(), config.instance, 1)?;
-        layouter.constrain_instance(nullifier_cell.cell(), config.instance, 2)?;
-
-        let leaf_input = layouter.assign_region(
-            || "assign leaf for hash",
-            |mut region| {
-                region.assign_advice(
-                    || "leaf for hash",
-                    config.advice[0],
-                    10,
-                    || Value::known(self.leaf),
-                )
-            },
-        )?;
-
-        let root_input = layouter.assign_region(
-            || "assign root for hash",
-            |mut region| {
-                region.assign_advice(
-                    || "root for hash",
-                    config.advice[1],
-                    10,
-                    || Value::known(self.root),
-                )
-            },
-        )?;
+        let leaf_cell_copy = leaf_cell.clone();
+        let root_cell_copy = root_cell.clone();
 
         let poseidon_hash = PoseidonHash::<
             pallas::Base,
@@ -244,8 +237,12 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
 
         let computed_nullifier = poseidon_hash.hash(
             layouter.namespace(|| "compute nullifier"),
-            [leaf_input, root_input],
+            [leaf_cell_copy, root_cell_copy],
         )?;
+
+        layouter.constrain_instance(leaf_cell.cell(), config.instance, 0)?;
+        layouter.constrain_instance(root_cell.cell(), config.instance, 1)?;
+        layouter.constrain_instance(nullifier_cell.cell(), config.instance, 2)?;
 
         layouter.assign_region(
             || "constrain nullifier equality",

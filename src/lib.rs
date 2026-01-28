@@ -32,9 +32,9 @@ pub use utils::{bytes_to_field, field_to_bytes, poseidon_hash};
 
 /// Circuit parameter for Halo2 proving system.
 ///
-/// The value `k=11` creates a circuit with 2^k = 2048 rows.
-/// This supports Merkle trees with a maximum depth of 11 levels,
-/// which can handle up to 2^11 = 2048 leaves when the tree is a full binary tree.
+/// The value `k=12` creates a circuit with 2^k = 4096 rows.
+/// This supports Merkle trees with a maximum depth of 12 levels,
+/// which can handle up to 2^12 = 4096 leaves when the tree is a full binary tree.
 ///
 /// # Security Considerations
 ///
@@ -44,10 +44,10 @@ pub use utils::{bytes_to_field, field_to_bytes, poseidon_hash};
 /// # Performance Trade-offs
 ///
 /// If you need to support more leaves:
-/// - Increase `CIRCUIT_K` to 12 for up to 4096 leaves
 /// - Increase `CIRCUIT_K` to 13 for up to 8192 leaves
+/// - Increase `CIRCUIT_K` to 14 for up to 16384 leaves
 /// - Each increment doubles the circuit size and proof generation time
 ///
 /// - Higher k values allow larger trees but increase memory and computation
 /// - Lower k values are faster but limit the maximum tree size
-pub const CIRCUIT_K: u32 = 11;
+pub const CIRCUIT_K: u32 = 12;
