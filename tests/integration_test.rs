@@ -36,10 +36,9 @@ fn test_end_to_end_prover_verifier_workflow() {
     let prover_output = std::process::Command::new(&prover_path)
         .arg("--accounts-file")
         .arg(&accounts_file)
-        .arg("--private-key")
-        .arg(&private_key_hex)
         .arg("--output")
         .arg(&proof_file)
+        .env("ZKP_PRIVATE_KEY", &private_key_hex)
         .output()
         .expect("Failed to execute prover");
 
@@ -103,10 +102,9 @@ fn test_replay_attack_prevention() {
     let prover_output = std::process::Command::new(&prover_path)
         .arg("--accounts-file")
         .arg(&accounts_file)
-        .arg("--private-key")
-        .arg(&private_key_hex)
         .arg("--output")
         .arg(&proof_file)
+        .env("ZKP_PRIVATE_KEY", &private_key_hex)
         .output()
         .expect("Failed to execute prover");
 
@@ -179,10 +177,9 @@ fn test_large_merkle_tree() {
     let prover_output = std::process::Command::new(&prover_path)
         .arg("--accounts-file")
         .arg(&accounts_file)
-        .arg("--private-key")
-        .arg(&private_key_hex)
         .arg("--output")
         .arg(&proof_file)
+        .env("ZKP_PRIVATE_KEY", &private_key_hex)
         .output()
         .expect("Failed to execute prover");
 
@@ -249,7 +246,7 @@ fn test_invalid_proof_structure() {
 fn test_duplicate_addresses() {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
     let accounts_file = temp_dir.path().join("duplicate_accounts.txt");
-
+    let proof_file = temp_dir.path().join("proof.json");
     let wallet1 = LocalWallet::new(&mut rand::thread_rng());
     let wallet2 = LocalWallet::new(&mut rand::thread_rng());
 
@@ -274,10 +271,9 @@ fn test_duplicate_addresses() {
     let prover_output = std::process::Command::new(&prover_path)
         .arg("--accounts-file")
         .arg(&accounts_file)
-        .arg("--private-key")
-        .arg(&private_key_hex)
         .arg("--output")
-        .arg(temp_dir.path().join("proof.json"))
+        .arg(&proof_file)
+        .env("ZKP_PRIVATE_KEY", &private_key_hex)
         .output()
         .expect("Failed to execute prover");
 
@@ -332,10 +328,9 @@ fn test_concurrent_prover_calls() {
         std::process::Command::new(&prover_path)
             .arg("--accounts-file")
             .arg(&accounts_file)
-            .arg("--private-key")
-            .arg(&private_key1)
             .arg("--output")
             .arg(&proof_file1_clone)
+            .env("ZKP_PRIVATE_KEY", &private_key1)
             .output()
             .expect("Failed to execute prover")
     });
@@ -346,10 +341,9 @@ fn test_concurrent_prover_calls() {
         std::process::Command::new(&prover_path_clone)
             .arg("--accounts-file")
             .arg(&accounts_file_clone)
-            .arg("--private-key")
-            .arg(&private_key2)
             .arg("--output")
             .arg(&proof_file2_clone)
+            .env("ZKP_PRIVATE_KEY", &private_key2)
             .output()
             .expect("Failed to execute prover")
     });

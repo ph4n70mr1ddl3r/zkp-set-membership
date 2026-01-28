@@ -67,11 +67,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Private keys saved to: test_private_keys.txt");
 
     println!("\nNext steps:");
-    println!("1. Build the project: cargo build --release");
+    println!("1. Build project: cargo build --release");
     println!("2. Run test script: ./run_tests.sh");
     println!("   or manually test with:");
     println!(
-        "   ./target/release/prover --accounts-file {} --private-key <KEY> --output proof.json",
+        "   ZKP_PRIVATE_KEY=<KEY> ./target/release/prover --accounts-file {} --output proof.json",
         accounts_file
     );
     println!("   ./target/release/verifier --proof-file proof.json");

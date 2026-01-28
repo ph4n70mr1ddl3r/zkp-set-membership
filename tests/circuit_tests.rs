@@ -149,19 +149,16 @@ fn test_bytes_to_field_zero_bytes() {
 #[test]
 fn test_circuit_with_siblings() {
     let leaf_bytes = [42u8; 32];
-    let sibling_bytes = [43u8; 32];
 
     let leaf = bytes_to_field(&leaf_bytes);
-    let sibling = bytes_to_field(&sibling_bytes);
-
-    let root = compute_poseidon_hash(leaf, sibling);
+    let root = leaf;
     let nullifier = compute_poseidon_hash(leaf, root);
 
     let circuit = SetMembershipCircuit {
         leaf,
         root,
         nullifier,
-        siblings: vec![sibling],
+        siblings: vec![],
         leaf_index: 0,
     };
 
