@@ -59,6 +59,7 @@ fn check_and_add_nullifier(nullifier_file: &Path, nullifier: &str) -> Result<()>
         .read(true)
         .write(true)
         .create(true)
+        .truncate(false)
         .open(nullifier_file)
         .context("Failed to open nullifier file")?;
 
@@ -171,7 +172,6 @@ fn main() -> Result<()> {
         .generate_and_cache_keys(&params)
         .context("Failed to generate verification keys")?;
 
-    info!("Replay attack check passed");
     let leaf_hex = &proof.verification_key.leaf;
     let root_hex = &proof.merkle_root;
     let nullifier_hex = &proof.nullifier;

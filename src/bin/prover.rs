@@ -148,7 +148,7 @@ fn main() -> Result<()> {
     info!("Parsing private key...");
     let wallet: LocalWallet = private_key
         .parse()
-        .with_context(|| format!("Failed to parse private key: invalid format"))?;
+        .with_context(|| "Failed to parse private key: invalid format".to_string())?;
     let prover_address = wallet.address();
     let prover_address_str = format!("{:x}", prover_address);
     info!("Prover address: 0x{prover_address_str}");
