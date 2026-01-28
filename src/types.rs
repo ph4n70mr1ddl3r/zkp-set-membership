@@ -9,22 +9,38 @@ use serde::{Deserialize, Serialize};
 pub const HASH_SIZE: usize = 32;
 
 /// Verification key data for ZK proof verification.
+///
+/// Contains the public inputs that were committed to in the circuit.
+/// These values must match between proof generation and verification.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VerificationKey {
+    /// Leaf value as hex string (32 bytes = 64 hex chars)
     pub leaf: String,
+    /// Merkle root as hex string (32 bytes = 64 hex chars)
     pub root: String,
+    /// Nullifier as hex string (H(leaf || root))
     pub nullifier: String,
 }
 
 /// Output structure for zero-knowledge proofs.
+///
+/// Contains all data needed to verify a set membership proof including
+/// the Merkle proof, ZK-SNARK proof, and nullifier for replay attack prevention.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ZKProofOutput {
+    /// Merkle root hash as hex string (32 bytes = 64 hex chars)
     pub merkle_root: String,
+    /// Deterministic nullifier hash as hex string (H(leaf || root))
     pub nullifier: String,
+    /// Raw ZK-SNARK proof bytes
     pub zkp_proof: Vec<u8>,
+    /// Verification key containing the public input commitments
     pub verification_key: VerificationKey,
+    /// Index of the proven leaf in the original set
     pub leaf_index: usize,
+    /// Unix timestamp when proof was generated
     pub timestamp: u64,
+    /// Merkle path siblings as hex strings (for verification)
     pub merkle_siblings: Vec<String>,
 }
 
@@ -33,6 +49,13 @@ impl ZKProofOutput {
     const TIMESTAMP_MAX_AGE_SECS: u64 = 86400;
 
     /// Validates the proof output structure and cryptographic consistency.
+    ///
+    /// Performs comprehensive validation including:
+    /// - Field presence and non-empty checks
+    /// - Timestamp validation (not too old or in future)
+    /// - Hex encoding validation
+    /// - Byte length verification
+    /// - Cryptographic consistency (nullifier matches H(leaf || root))
     ///
     /// # Errors
     /// Returns an error if validation fails, including:

@@ -30,6 +30,11 @@ use std::sync::OnceLock;
 
 type PoseidonChipType = PoseidonChip<pallas::Base, 3, 2>;
 
+const INITIAL_ROW_OFFSET: usize = 0;
+const NULLIFIER_ROW_OFFSET: usize = 1;
+const SIBLING_ROW_OFFSET: usize = 100;
+const ROW_INCREMENT: usize = 50;
+
 #[derive(Debug, Clone)]
 pub struct SetMembershipConfig {
     pub advice: [Column<Advice>; 15],
@@ -193,7 +198,7 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
         let (leaf_cell, root_cell, nullifier_cell) = layouter.assign_region(
             || "assign input values",
             |mut region| {
-                let offset = 0;
+                let offset = INITIAL_ROW_OFFSET;
 
                 let leaf_cell = region.assign_advice(
                     || "leaf",
@@ -212,7 +217,7 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
                 let nullifier_cell = region.assign_advice(
                     || "nullifier",
                     config.advice[2],
-                    offset + 1,
+                    offset + NULLIFIER_ROW_OFFSET,
                     || Value::known(self.nullifier),
                 )?;
 
@@ -251,7 +256,7 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
 
         let mut current_hash = leaf_cell;
         let mut index = self.leaf_index;
-        let mut offset = 100;
+        let mut offset = SIBLING_ROW_OFFSET;
 
         for (i, &sibling) in self.siblings.iter().enumerate() {
             let _sibling_cell = layouter.assign_region(
@@ -320,7 +325,7 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
             )?;
 
             index /= 2;
-            offset += 50;
+            offset += ROW_INCREMENT;
         }
 
         layouter.assign_region(
