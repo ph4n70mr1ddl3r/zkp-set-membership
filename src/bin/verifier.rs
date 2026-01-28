@@ -146,10 +146,12 @@ fn main() -> Result<()> {
 
     if proof.zkp_proof.len() > get_max_zk_proof_size() {
         return Err(anyhow::anyhow!(
-            "ZK proof size exceeds limit: {} bytes (max {} bytes). The proof may be malformed or generated with incompatible parameters. To fix: 1) Regenerate the proof with the current prover, 2) Verify CIRCUIT_K parameter matches between prover and verifier (current: {}), or 3) Set ZKP_MAX_ZK_PROOF_SIZE environment variable",
+            "ZK proof size {} bytes exceeds limit of {} bytes. The proof may be malformed or generated with incompatible parameters. To fix: 1) Regenerate the proof with the current prover binary, 2) Verify CIRCUIT_K={} parameter matches between prover and verifier (both must be {}), 3) Set ZKP_MAX_ZK_PROOF_SIZE environment variable to a higher value (current: {})",
             proof.zkp_proof.len(),
             get_max_zk_proof_size(),
-            CIRCUIT_K
+            CIRCUIT_K,
+            1 << CIRCUIT_K,
+            get_max_zk_proof_size()
         ));
     }
 

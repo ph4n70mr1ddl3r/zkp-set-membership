@@ -159,8 +159,9 @@ fn main() -> Result<()> {
 
     if normalized_addresses.len() > (1 << CIRCUIT_K) {
         return Err(anyhow::anyhow!(
-            "Number of addresses {} exceeds CIRCUIT_K capacity of {} (max allowed: {})",
+            "Number of addresses {} exceeds CIRCUIT_K={} capacity of {} (max allowed: {}). Please reduce the number of addresses or increase CIRCUIT_K in src/lib.rs",
             normalized_addresses.len(),
+            CIRCUIT_K,
             1 << CIRCUIT_K,
             1 << CIRCUIT_K
         ));
