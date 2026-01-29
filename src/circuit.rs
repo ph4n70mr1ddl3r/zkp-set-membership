@@ -393,6 +393,47 @@ impl SetMembershipProver {
         Ok(())
     }
 
+    /// Check if keys have been generated and are available.
+    ///
+    /// # Returns
+    ///
+    /// `true` if both verifying and proving keys are available
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use zkp_set_membership::circuit::SetMembershipProver;
+    ///
+    /// let prover = SetMembershipProver::new();
+    /// assert!(!prover.has_keys());
+    /// ```
+    #[must_use]
+    pub fn has_keys(&self) -> bool {
+        self.vk.is_some() && self.pk.is_some()
+    }
+
+    /// Get references to the proving and verifying keys if available.
+    ///
+    /// # Returns
+    ///
+    /// `Some((vk, pk))` if keys are available, `None` otherwise
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use zkp_set_membership::circuit::SetMembershipProver;
+    ///
+    /// let prover = SetMembershipProver::new();
+    /// assert!(prover.get_keys().is_none());
+    /// ```
+    #[must_use]
+    pub fn get_keys(&self) -> Option<CachedKeys> {
+        match (&self.vk, &self.pk) {
+            (Some(vk), Some(pk)) => Some((vk.clone(), pk.clone())),
+            _ => None,
+        }
+    }
+
     pub fn generate_proof(
         &self,
         params: &Params<vesta::Affine>,
