@@ -28,12 +28,23 @@ use pasta_curves::{pallas, vesta};
 use std::sync::Arc;
 use std::sync::OnceLock;
 
+use crate::CIRCUIT_K;
+
 type PoseidonChipType = PoseidonChip<pallas::Base, 3, 2>;
 
 const INITIAL_ROW_OFFSET: usize = 0;
 const NULLIFIER_ROW_OFFSET: usize = 1;
 const SIBLING_ROW_OFFSET: usize = 100;
 const ROW_INCREMENT: usize = 50;
+
+const MAX_TREE_DEPTH: usize = 12;
+
+const _: () = {
+    const _: () = assert!(
+        SIBLING_ROW_OFFSET + (MAX_TREE_DEPTH * ROW_INCREMENT) < (1 << CIRCUIT_K),
+        "Circuit row offsets exceed circuit capacity for CIRCUIT_K=12"
+    );
+};
 
 #[derive(Debug, Clone)]
 pub struct SetMembershipConfig {
@@ -61,6 +72,15 @@ impl SetMembershipCircuit {
         use crate::utils::poseidon_hash;
         let expected_nullifier = poseidon_hash(self.leaf, self.root);
         self.nullifier == expected_nullifier
+    }
+
+    pub fn validate_leaf_index(&self) -> bool {
+        let expected_depth = self.siblings.len();
+        if expected_depth == 0 {
+            return self.leaf_index == 0;
+        }
+        let max_index = (1 << expected_depth) - 1;
+        self.leaf_index <= max_index
     }
 }
 
@@ -116,13 +136,29 @@ impl SetMembershipCircuitBuilder {
             .leaf_index
             .ok_or_else(|| anyhow::anyhow!("leaf_index is required"))?;
 
-        Ok(SetMembershipCircuit {
+        let circuit = SetMembershipCircuit {
             leaf,
             root,
             nullifier,
             siblings,
             leaf_index,
-        })
+        };
+
+        if !circuit.validate_leaf_index() {
+            let max_index = if circuit.siblings.is_empty() {
+                0
+            } else {
+                (1 << circuit.siblings.len()) - 1
+            };
+            return Err(anyhow::anyhow!(
+                "leaf_index {} is out of bounds for tree with {} siblings (max index: {})",
+                circuit.leaf_index,
+                circuit.siblings.len(),
+                max_index
+            ));
+        }
+
+        Ok(circuit)
     }
 }
 
@@ -259,7 +295,7 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
         let mut offset = SIBLING_ROW_OFFSET;
 
         for (i, &sibling) in self.siblings.iter().enumerate() {
-            let _sibling_cell = layouter.assign_region(
+            layouter.assign_region(
                 || format!("assign sibling {}", i),
                 |mut region| {
                     region.assign_advice(

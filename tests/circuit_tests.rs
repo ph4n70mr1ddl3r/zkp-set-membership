@@ -219,3 +219,70 @@ fn test_validate_consistency_fails() {
 
     assert!(!circuit.validate_consistency());
 }
+
+#[test]
+fn test_leaf_index_out_of_bounds() {
+    let leaf_bytes = [42u8; 32];
+    let sibling_bytes = [43u8; 32];
+
+    let leaf = bytes_to_field(&leaf_bytes);
+    let sibling = bytes_to_field(&sibling_bytes);
+
+    let root = compute_poseidon_hash(leaf, sibling);
+    let nullifier = compute_poseidon_hash(leaf, root);
+
+    let circuit = SetMembershipCircuit {
+        leaf,
+        root,
+        nullifier,
+        siblings: vec![sibling],
+        leaf_index: 10,
+    };
+
+    assert!(!circuit.validate_leaf_index());
+}
+
+#[test]
+fn test_leaf_index_valid_bounds() {
+    let leaf_bytes = [42u8; 32];
+    let sibling_bytes = [43u8; 32];
+
+    let leaf = bytes_to_field(&leaf_bytes);
+    let sibling = bytes_to_field(&sibling_bytes);
+
+    let root = compute_poseidon_hash(leaf, sibling);
+    let nullifier = compute_poseidon_hash(leaf, root);
+
+    let circuit = SetMembershipCircuit {
+        leaf,
+        root,
+        nullifier,
+        siblings: vec![sibling],
+        leaf_index: 1,
+    };
+
+    assert!(circuit.validate_leaf_index());
+}
+
+#[test]
+fn test_leaf_index_builder_validation() {
+    let leaf_bytes = [42u8; 32];
+    let sibling_bytes = [43u8; 32];
+
+    let leaf = bytes_to_field(&leaf_bytes);
+    let sibling = bytes_to_field(&sibling_bytes);
+
+    let root = compute_poseidon_hash(leaf, sibling);
+    let nullifier = compute_poseidon_hash(leaf, root);
+
+    let result = SetMembershipCircuit::builder()
+        .leaf(leaf)
+        .root(root)
+        .nullifier(nullifier)
+        .siblings(vec![sibling])
+        .leaf_index(10)
+        .build();
+
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("leaf_index"));
+}
