@@ -191,6 +191,17 @@ impl ZKProofOutput {
 ///
 /// Inputs longer than 32 bytes are rejected to prevent collision attacks
 /// where different inputs could produce the same nullifier.
+///
+/// # Examples
+///
+/// ```
+/// use zkp_set_membership::types::compute_nullifier;
+///
+/// let leaf = [1u8; 32];
+/// let root = [2u8; 32];
+/// let nullifier = compute_nullifier(&leaf, &root).unwrap();
+/// assert_eq!(nullifier.len(), 32);
+/// ```
 pub fn compute_nullifier(leaf_bytes: &[u8], merkle_root: &[u8]) -> Result<[u8; HASH_SIZE]> {
     if leaf_bytes.len() != HASH_SIZE {
         return Err(anyhow::anyhow!(

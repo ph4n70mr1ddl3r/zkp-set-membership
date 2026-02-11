@@ -83,6 +83,16 @@ impl MerkleTree {
     /// # Note
     /// For optimal performance, the number of leaves should be a power of 2.
     /// If not, the tree will handle it by propagating odd nodes up.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use zkp_set_membership::merkle::MerkleTree;
+    ///
+    /// let leaves = vec![[1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32]];
+    /// let tree = MerkleTree::new(leaves).unwrap();
+    /// assert!(!tree.root.is_empty());
+    /// ```
     #[must_use = "The Merkle tree should be used for further operations"]
     pub fn new(leaves: Vec<[u8; HASH_SIZE]>) -> Result<Self, anyhow::Error> {
         if leaves.is_empty() {
@@ -116,6 +126,19 @@ impl MerkleTree {
     ///
     /// # Returns
     /// `Some(MerkleProof)` if the index is valid, `None` otherwise
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use zkp_set_membership::merkle::MerkleTree;
+    ///
+    /// let leaves = vec![[1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32]];
+    /// let tree = MerkleTree::new(leaves).unwrap();
+    ///
+    /// let proof = tree.generate_proof(0).unwrap();
+    /// assert_eq!(proof.index, 0);
+    /// assert!(tree.verify_proof(&proof));
+    /// ```
     #[must_use]
     pub fn generate_proof(&self, leaf_index: usize) -> Option<MerkleProof> {
         if leaf_index >= self.leaves.len() {
@@ -158,6 +181,18 @@ impl MerkleTree {
     /// # Note
     /// This only verifies the cryptographic correctness of the proof.
     /// It does not verify that the `leaf_index` is valid for this tree.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use zkp_set_membership::merkle::MerkleTree;
+    ///
+    /// let leaves = vec![[1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32]];
+    /// let tree = MerkleTree::new(leaves).unwrap();
+    ///
+    /// let proof = tree.generate_proof(0).unwrap();
+    /// assert!(tree.verify_proof(&proof));
+    /// ```
     #[must_use]
     pub fn verify_proof(&self, proof: &MerkleProof) -> bool {
         if proof.root != self.root {
