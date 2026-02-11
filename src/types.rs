@@ -12,13 +12,35 @@ pub const HASH_SIZE: usize = 32;
 ///
 /// Contains the public inputs that were committed to in the circuit.
 /// These values must match between proof generation and verification.
+///
+/// # Note on Naming
+///
+/// Despite its name, this struct is not the Halo2 "verifying key" (which is
+/// a cryptographic key used to verify proofs). Instead, it contains the public
+/// input values that were committed to when generating the proof.
+///
+/// The values in this struct (`leaf`, `root`, `nullifier`) must match exactly
+/// between the prover and verifier for verification to succeed.
+///
+/// # Relationship to ZKProofOutput
+///
+/// In `ZKProofOutput`, the `merkle_root` field contains the same value as
+/// `verification_key.root`. Both represent the Merkle tree root. The
+/// `verification_key` struct groups all public inputs together for clarity.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VerificationKey {
-    /// Leaf value as hex string (32 bytes = 64 hex chars)
+    /// Leaf value as hex string (32 bytes = 64 hex chars).
+    ///
+    /// This is the leaf in the Merkle tree that the prover claims membership of.
     pub leaf: String,
-    /// Merkle root as hex string (32 bytes = 64 hex chars)
+    /// Merkle root as hex string (32 bytes = 64 hex chars).
+    ///
+    /// This is the root of the Merkle tree containing the leaf.
+    /// Note: This value is the same as `ZKProofOutput.merkle_root`.
     pub root: String,
-    /// Nullifier as hex string (H(leaf || root))
+    /// Nullifier as hex string (H(leaf || root)).
+    ///
+    /// Deterministic hash computed from leaf and root, used for replay attack prevention.
     pub nullifier: String,
 }
 
@@ -26,15 +48,36 @@ pub struct VerificationKey {
 ///
 /// Contains all data needed to verify a set membership proof including
 /// the Merkle proof, ZK-SNARK proof, and nullifier for replay attack prevention.
+///
+/// # Public Input Consistency
+///
+/// The following values represent the same data:
+/// - `merkle_root` == `verification_key.root` (both are the Merkle tree root)
+///
+/// When verifying, the verifier should use:
+/// - `merkle_root` for the Merkle root
+/// - `verification_key.leaf` for the leaf value
+/// - `verification_key.nullifier` for the nullifier
+///
+/// All three values together form the public inputs to the circuit.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ZKProofOutput {
-    /// Merkle root hash as hex string (32 bytes = 64 hex chars)
+    /// Merkle root hash as hex string (32 bytes = 64 hex chars).
+    ///
+    /// This is the root of the Merkle tree. It is the same value as
+    /// `verification_key.root` - both can be used interchangeably.
     pub merkle_root: String,
-    /// Deterministic nullifier hash as hex string (H(leaf || root))
+    /// Deterministic nullifier hash as hex string (H(leaf || root)).
+    ///
+    /// Used for replay attack prevention. The same nullifier is also stored
+    /// in `verification_key.nullifier`.
     pub nullifier: String,
     /// Raw ZK-SNARK proof bytes
     pub zkp_proof: Vec<u8>,
-    /// Verification key containing the public input commitments
+    /// Verification key containing the public input commitments.
+    ///
+    /// Contains `leaf`, `root`, and `nullifier` values. Note that `root`
+    /// is the same as `merkle_root` in this struct.
     pub verification_key: VerificationKey,
     /// Index of the proven leaf in the original set
     pub leaf_index: usize,
