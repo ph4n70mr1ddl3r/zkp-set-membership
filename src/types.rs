@@ -207,10 +207,8 @@ pub fn compute_nullifier(leaf_bytes: &[u8], merkle_root: &[u8]) -> Result<[u8; H
         ));
     }
 
-    let leaf_normalized = normalize_to_32_bytes(leaf_bytes)?;
-    let root_normalized = normalize_to_32_bytes(merkle_root)?;
-    let leaf_field = bytes_to_field(&leaf_normalized);
-    let root_field = bytes_to_field(&root_normalized);
+    let leaf_field = bytes_to_field(&leaf_bytes.try_into().expect("validated above"));
+    let root_field = bytes_to_field(&merkle_root.try_into().expect("validated above"));
     let hash_field = poseidon_hash(leaf_field, root_field);
     Ok(field_to_bytes(hash_field))
 }

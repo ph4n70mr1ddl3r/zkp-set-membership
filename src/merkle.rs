@@ -53,6 +53,7 @@ fn hash_pair(left: &[u8; HASH_SIZE], right: &[u8; HASH_SIZE]) -> [u8; HASH_SIZE]
     field_to_bytes(hash_field)
 }
 
+#[inline]
 fn compute_next_level(level: &[[u8; HASH_SIZE]]) -> Vec<[u8; HASH_SIZE]> {
     let new_level_capacity = level.len().div_ceil(2);
     let mut new_level = Vec::with_capacity(new_level_capacity);

@@ -158,6 +158,12 @@ impl SetMembershipCircuitBuilder {
             ));
         }
 
+        if !circuit.validate_consistency() {
+            return Err(anyhow::anyhow!(
+                "Nullifier does not match H(leaf || root). Ensure nullifier is computed as poseidon_hash(leaf, root)"
+            ));
+        }
+
         Ok(circuit)
     }
 }
