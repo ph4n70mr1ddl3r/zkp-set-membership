@@ -12,6 +12,72 @@
 //! - **Nullifier computation**: Enforces H(leaf || root) = nullifier in-circuit
 //! - **Proper constraint enforcement**: Public inputs are cryptographically bound
 //!   to private witnesses through the circuit
+//!
+//! # Circuit Layout
+//!
+//! The circuit uses a fixed column layout for efficient constraint assignment:
+//!
+//! ## Column Allocation
+//!
+//! ```text
+//! Advice Columns (15):
+//!   advice[0..2] - Poseidon hash state inputs
+//!   advice[2]   - Poseidon hash state output
+//!   advice[3]   - Partial S-box for Poseidon
+//!   advice[4]   - Sibling values in Merkle path
+//!   advice[5]   - Left child in Merkle path computation
+//!   advice[6]   - Right child in Merkle path computation
+//!   advice[7..14] - Reserved for future extensions
+//!
+//! Fixed Columns (6):
+//!   fixed[0..2] - Round constants A for Poseidon
+//!   fixed[3..5] - Round constants B for Poseidon
+//!
+//! Instance Column (1):
+//!   instance[0] - Public input: leaf
+//!   instance[1] - Public input: root
+//!   instance[2] - Public input: nullifier
+//! ```
+//!
+//! ## Row Layout
+//!
+//! ```text
+//! Row 0:        Assign leaf (advice[0]), root (advice[1])
+//! Row 1:        Assign nullifier (advice[2])
+//! Row 2:        Compute H(leaf || root) -> nullifier, constrain to instance[2]
+//! Row 3..99:    Reserved padding
+//! Row 100:      Assign sibling[0] (advice[4])
+//! Row 101:      Assign left[0] (advice[5]), right[0] (advice[6])
+//! Row 102:      Compute H(left[0] || right[0]) -> current_hash
+//! Row 150:      Assign sibling[1] (advice[4])
+//! Row 151:      Assign left[1] (advice[5]), right[1] (advice[6])
+//! Row 152:      Compute H(left[1] || right[1]) -> current_hash
+//! ... (repeat for each level, ROW_INCREMENT = 50 rows per level)
+//!
+//! Final row:    Constrain current_hash == root (instance[1])
+//! ```
+//!
+//! # Constraint Flow
+//!
+//! 1. **Nullifier Constraint**:
+//!    - Instance[0] (leaf) + Instance[1] (root) --[Poseidon]--> Instance[2] (nullifier)
+//!
+//! 2. **Merkle Path Verification**:
+//!    - For each level i from 0 to depth-1:
+//!      - If leaf_index % 2 == 0: left = current_hash, right = sibling[i]
+//!      - If leaf_index % 2 == 1: left = sibling[i], right = current_hash
+//!      - H(left || right) -> current_hash
+//!      - leaf_index /= 2
+//!    - Final constraint: current_hash == root
+//!
+//! # Maximum Tree Depth
+//!
+//! The circuit supports trees up to `MAX_TREE_DEPTH = 12` levels (4096 leaves).
+//! Each level requires `ROW_INCREMENT = 50` rows.
+//! Starting from `SIBLING_ROW_OFFSET = 100`, the maximum row used is:
+//!   100 + (12 * 50) = 700 rows
+//!
+//! This is well within the circuit capacity of 2^CIRCUIT_K = 4096 rows.
 
 use halo2_gadgets::poseidon::primitives::{ConstantLength, P128Pow5T3 as PoseidonSpec};
 use halo2_gadgets::poseidon::{Hash as PoseidonHash, Pow5Chip as PoseidonChip};

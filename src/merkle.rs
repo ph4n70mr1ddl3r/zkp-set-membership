@@ -138,6 +138,9 @@ impl MerkleTree {
     /// let proof = tree.generate_proof(0).unwrap();
     /// assert_eq!(proof.index, 0);
     /// assert!(tree.verify_proof(&proof));
+    ///
+    /// // Invalid index returns None
+    /// assert!(tree.generate_proof(999).is_none());
     /// ```
     #[must_use]
     pub fn generate_proof(&self, leaf_index: usize) -> Option<MerkleProof> {
