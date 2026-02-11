@@ -249,15 +249,12 @@ fn main() -> Result<()> {
     println!("Generating ZK proof (this may take a while)...");
     let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
 
-    let mut prover = SetMembershipProver::new();
     info!("Generating/caching ZK-SNARK keys");
     println!("Generating ZK-SNARK keys...");
-    prover
-        .generate_and_cache_keys(&params)
-        .context("Failed to generate keys")?;
+    let (_, pk) =
+        SetMembershipProver::generate_and_cache_keys(&params).context("Failed to generate keys")?;
 
-    let zkp_proof = prover
-        .generate_proof(&params, circuit, &public_inputs)
+    let zkp_proof = SetMembershipProver::generate_proof(&pk, &params, circuit, &public_inputs)
         .context("Failed to create proof")?;
 
     info!(

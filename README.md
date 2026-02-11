@@ -14,15 +14,15 @@ A Rust implementation of zero-knowledge proof for Ethereum account set membershi
 
 ### Components
 
-1. **Merkle Tree Module** (`src/merkle.rs`)
-   - Binary Merkle tree implementation
-   - Proof generation and verification
-   - SHA3-256 hashing
+ 1. **Merkle Tree Module** (`src/merkle.rs`)
+    - Binary Merkle tree implementation
+    - Proof generation and verification
+    - Poseidon hash for efficient in-circuit verification
 
-2. **ZK-SNARK Circuit** (`src/circuit.rs`)
-   - Set membership circuit using Halo2
-   - Poseidon hash integration
-   - Pallas/Vesta curve support
+  2. **ZK-SNARK Circuit** (`src/circuit.rs`)
+    - Set membership circuit using Halo2
+    - Poseidon hash integration
+    - Pallas/Vesta curve support
 
 3. **Prover Binary** (`src/bin/prover.rs`)
    - CLI interface for proof generation
@@ -153,7 +153,7 @@ The proof is saved as a JSON file with the following structure:
 
 ### Merkle Tree
 - Binary tree structure
-- SHA3-256 hash function
+- Poseidon hash function for efficient in-circuit verification
 - Support for arbitrary power-of-two leaf counts
 - Efficient proof generation and verification
 
@@ -170,14 +170,6 @@ The proof is saved as a JSON file with the following structure:
 ### Nullifier Generation
 ```
 nullifier = Poseidon_Hash(leaf || merkle_root)
-```
-
-### Circuit Security Features
-- **Cryptographic constraints**: Uses Poseidon hash instead of simple addition
-- **Merkle path verification**: Proves leaf is included in the tree that computes to root
-- **Public input enforcement**: All public values are properly constrained in the circuit
-- **Client-side validation**: Pre-proof validation ensures cryptographic consistency
-nullifier = SHA3_256(private_key || merkle_root)
 ```
 
 This ensures:
@@ -238,7 +230,6 @@ cargo fmt
 - `pasta-curves`: Elliptic curves (Pallas and Vesta)
 - `ethers`: Ethereum utilities and signing
 - `serde`/`serde_json`: JSON serialization
-- `sha3`: SHA-3 hash functions
 - `clap`: Command-line argument parsing
 - `hex`: Hex encoding/decoding
 - `anyhow`/`thiserror`: Error handling

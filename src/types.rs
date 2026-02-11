@@ -241,9 +241,9 @@ pub fn compute_nullifier_from_fields(leaf: pallas::Base, root: pallas::Base) -> 
 ///
 /// * `bytes` - Byte slice to normalize (must be <= 32 bytes)
 ///
-/// # Returns
+/// # Panics
 ///
-/// 32-byte array
+/// Panics if input length exceeds 32 bytes
 #[inline]
 pub fn normalize_to_32_bytes(bytes: &[u8]) -> [u8; HASH_SIZE] {
     assert!(

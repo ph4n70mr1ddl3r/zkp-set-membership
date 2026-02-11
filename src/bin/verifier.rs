@@ -167,11 +167,9 @@ fn main() -> Result<()> {
         .context("Failed to convert nullifier path to string")?;
     debug!("Nullifier file: {nullifier_file}");
 
-    let mut prover = SetMembershipProver::new();
     info!("Generating/caching ZK-SNARK keys");
     println!("Generating ZK-SNARK keys...");
-    prover
-        .generate_and_cache_keys(&params)
+    let (vk, _) = SetMembershipProver::generate_and_cache_keys(&params)
         .context("Failed to generate verification keys")?;
 
     let leaf_hex = &proof.verification_key.leaf;
@@ -214,7 +212,8 @@ fn main() -> Result<()> {
     let public_inputs = vec![leaf_base, root_base, nullifier_base];
 
     info!("Verifying ZK proof with public inputs");
-    let verification_result = prover.verify_proof(&params, &proof.zkp_proof, &public_inputs);
+    let verification_result =
+        SetMembershipProver::verify_proof(&vk, &params, &proof.zkp_proof, &public_inputs);
 
     match verification_result {
         Ok(_) => {

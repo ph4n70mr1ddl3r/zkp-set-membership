@@ -337,10 +337,7 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
     }
 }
 
-pub struct SetMembershipProver {
-    vk: Option<Arc<VerifyingKey<vesta::Affine>>>,
-    pk: Option<Arc<ProvingKey<vesta::Affine>>>,
-}
+pub struct SetMembershipProver;
 
 type CachedKeys = (
     Arc<VerifyingKey<vesta::Affine>>,
@@ -358,25 +355,12 @@ impl Default for SetMembershipProver {
 impl SetMembershipProver {
     #[must_use]
     pub fn new() -> Self {
-        Self { vk: None, pk: None }
+        Self
     }
 
-    #[must_use]
-    pub fn with_keys(
-        vk: Arc<VerifyingKey<vesta::Affine>>,
-        pk: Arc<ProvingKey<vesta::Affine>>,
-    ) -> Self {
-        Self {
-            vk: Some(vk),
-            pk: Some(pk),
-        }
-    }
-
-    pub fn generate_and_cache_keys(&mut self, params: &Params<vesta::Affine>) -> Result<(), Error> {
-        if let Some((vk, pk)) = CACHED_KEYS.get() {
-            self.vk = Some(vk.clone());
-            self.pk = Some(pk.clone());
-            return Ok(());
+    pub fn generate_and_cache_keys(params: &Params<vesta::Affine>) -> Result<CachedKeys, Error> {
+        if let Some(keys) = CACHED_KEYS.get() {
+            return Ok(keys.clone());
         }
 
         let circuit = SetMembershipCircuit::default();
@@ -386,11 +370,10 @@ impl SetMembershipProver {
         let vk = Arc::new(vk);
         let pk = Arc::new(pk);
 
-        let _ = CACHED_KEYS.set((vk.clone(), pk.clone()));
+        let keys = (vk.clone(), pk.clone());
+        let _ = CACHED_KEYS.set(keys.clone());
 
-        self.vk = Some(vk);
-        self.pk = Some(pk);
-        Ok(())
+        Ok(keys)
     }
 
     /// Check if keys have been generated and are available.
@@ -398,18 +381,9 @@ impl SetMembershipProver {
     /// # Returns
     ///
     /// `true` if both verifying and proving keys are available
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use zkp_set_membership::circuit::SetMembershipProver;
-    ///
-    /// let prover = SetMembershipProver::new();
-    /// assert!(!prover.has_keys());
-    /// ```
     #[must_use]
-    pub fn has_keys(&self) -> bool {
-        self.vk.is_some() && self.pk.is_some()
+    pub fn has_keys() -> bool {
+        CACHED_KEYS.get().is_some()
     }
 
     /// Get references to the proving and verifying keys if available.
@@ -417,31 +391,17 @@ impl SetMembershipProver {
     /// # Returns
     ///
     /// `Some((vk, pk))` if keys are available, `None` otherwise
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use zkp_set_membership::circuit::SetMembershipProver;
-    ///
-    /// let prover = SetMembershipProver::new();
-    /// assert!(prover.get_keys().is_none());
-    /// ```
     #[must_use]
-    pub fn get_keys(&self) -> Option<CachedKeys> {
-        match (&self.vk, &self.pk) {
-            (Some(vk), Some(pk)) => Some((vk.clone(), pk.clone())),
-            _ => None,
-        }
+    pub fn get_keys() -> Option<CachedKeys> {
+        CACHED_KEYS.get().cloned()
     }
 
     pub fn generate_proof(
-        &self,
+        pk: &ProvingKey<vesta::Affine>,
         params: &Params<vesta::Affine>,
         circuit: SetMembershipCircuit,
         public_inputs: &[pallas::Base],
     ) -> Result<Vec<u8>, Error> {
-        let pk = self.pk.as_ref().ok_or(Error::Synthesis)?;
-
         let mut transcript = Blake2bWrite::init(vec![]);
         let mut rng = rand::rngs::ThreadRng::default();
 
@@ -459,13 +419,11 @@ impl SetMembershipProver {
     }
 
     pub fn verify_proof(
-        &self,
+        vk: &VerifyingKey<vesta::Affine>,
         params: &Params<vesta::Affine>,
         proof: &[u8],
         public_inputs: &[pallas::Base],
     ) -> Result<bool, Error> {
-        let vk = self.vk.as_ref().ok_or(Error::Synthesis)?;
-
         let strategy = SingleVerifier::new(params);
         let mut transcript = Blake2bRead::init(proof);
 

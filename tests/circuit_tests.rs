@@ -38,14 +38,13 @@ fn test_circuit_proof_generation() {
 
     let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
 
-    let mut prover = SetMembershipProver::new();
-    prover
-        .generate_and_cache_keys(&params)
-        .expect("Failed to generate keys");
-    let proof = prover.generate_proof(&params, circuit.clone(), &public_inputs);
+    let (vk, pk) =
+        SetMembershipProver::generate_and_cache_keys(&params).expect("Failed to generate keys");
+    let proof = SetMembershipProver::generate_proof(&pk, &params, circuit.clone(), &public_inputs);
     assert!(proof.is_ok(), "Proof generation should succeed");
 
-    let verification_result = prover.verify_proof(&params, &proof.unwrap(), &public_inputs);
+    let verification_result =
+        SetMembershipProver::verify_proof(&vk, &params, &proof.unwrap(), &public_inputs);
     assert!(
         verification_result.is_ok(),
         "Proof verification should succeed"
@@ -71,17 +70,16 @@ fn test_circuit_with_zero_values() {
 
     let public_inputs = vec![leaf, root, nullifier];
 
-    let mut prover = SetMembershipProver::new();
-    prover
-        .generate_and_cache_keys(&params)
-        .expect("Failed to generate keys");
-    let proof = prover.generate_proof(&params, circuit.clone(), &public_inputs);
+    let (vk, pk) =
+        SetMembershipProver::generate_and_cache_keys(&params).expect("Failed to generate keys");
+    let proof = SetMembershipProver::generate_proof(&pk, &params, circuit.clone(), &public_inputs);
     assert!(
         proof.is_ok(),
         "Proof generation with zero values should succeed"
     );
 
-    let verification_result = prover.verify_proof(&params, &proof.unwrap(), &public_inputs);
+    let verification_result =
+        SetMembershipProver::verify_proof(&vk, &params, &proof.unwrap(), &public_inputs);
     assert!(
         verification_result.unwrap(),
         "Proof with invalid public inputs should not verify"
@@ -107,18 +105,15 @@ fn test_proof_with_invalid_public_inputs() {
 
     let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
 
-    let mut prover = SetMembershipProver::new();
-    prover
-        .generate_and_cache_keys(&params)
-        .expect("Failed to generate keys");
-    let proof = prover
-        .generate_proof(&params, circuit.clone(), &public_inputs)
-        .unwrap();
+    let (vk, pk) =
+        SetMembershipProver::generate_and_cache_keys(&params).expect("Failed to generate keys");
+    let proof =
+        SetMembershipProver::generate_proof(&pk, &params, circuit.clone(), &public_inputs).unwrap();
 
     let invalid_leaf = bytes_to_field(&[99u8; 32]);
     let invalid_nullifier = compute_poseidon_hash(invalid_leaf, circuit.root);
     let invalid_inputs = vec![invalid_leaf, circuit.root, invalid_nullifier];
-    let result = prover.verify_proof(&params, &proof, &invalid_inputs);
+    let result = SetMembershipProver::verify_proof(&vk, &params, &proof, &invalid_inputs);
 
     assert!(result.is_ok());
     assert!(!result.unwrap());
@@ -165,17 +160,16 @@ fn test_circuit_with_siblings() {
     let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
     let public_inputs = vec![leaf, root, nullifier];
 
-    let mut prover = SetMembershipProver::new();
-    prover
-        .generate_and_cache_keys(&params)
-        .expect("Failed to generate keys");
-    let proof = prover.generate_proof(&params, circuit.clone(), &public_inputs);
+    let (vk, pk) =
+        SetMembershipProver::generate_and_cache_keys(&params).expect("Failed to generate keys");
+    let proof = SetMembershipProver::generate_proof(&pk, &params, circuit.clone(), &public_inputs);
     assert!(
         proof.is_ok(),
         "Proof generation with siblings should succeed"
     );
 
-    let verification_result = prover.verify_proof(&params, &proof.unwrap(), &public_inputs);
+    let verification_result =
+        SetMembershipProver::verify_proof(&vk, &params, &proof.unwrap(), &public_inputs);
     assert!(
         verification_result.unwrap(),
         "Proof with siblings should be valid"

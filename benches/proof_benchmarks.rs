@@ -11,8 +11,7 @@ use zkp_set_membership::{
 
 fn bench_proof_generation(c: &mut Criterion) {
     let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
-    let mut prover = SetMembershipProver::new();
-    prover.generate_and_cache_keys(&params).unwrap();
+    let (_, pk) = SetMembershipProver::generate_and_cache_keys(&params).unwrap();
 
     let mut group = c.benchmark_group("proof_generation");
 
@@ -49,9 +48,13 @@ fn bench_proof_generation(c: &mut Criterion) {
             |b, _| {
                 b.iter(|| {
                     black_box(
-                        prover
-                            .generate_proof(&params, circuit.clone(), &public_inputs)
-                            .unwrap(),
+                        SetMembershipProver::generate_proof(
+                            &pk,
+                            &params,
+                            circuit.clone(),
+                            &public_inputs,
+                        )
+                        .unwrap(),
                     )
                 })
             },
@@ -63,8 +66,7 @@ fn bench_proof_generation(c: &mut Criterion) {
 
 fn bench_proof_verification(c: &mut Criterion) {
     let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
-    let mut prover = SetMembershipProver::new();
-    prover.generate_and_cache_keys(&params).unwrap();
+    let (vk, pk) = SetMembershipProver::generate_and_cache_keys(&params).unwrap();
 
     let leaves: Vec<[u8; 32]> = (0..32)
         .map(|i| {
@@ -92,15 +94,13 @@ fn bench_proof_verification(c: &mut Criterion) {
 
     let public_inputs = vec![leaf, root, nullifier];
 
-    let zkp_proof = prover
-        .generate_proof(&params, circuit, &public_inputs)
-        .unwrap();
+    let zkp_proof =
+        SetMembershipProver::generate_proof(&pk, &params, circuit, &public_inputs).unwrap();
 
     c.bench_function("proof_verification", |b| {
         b.iter(|| {
             black_box(
-                prover
-                    .verify_proof(&params, &zkp_proof, &public_inputs)
+                SetMembershipProver::verify_proof(&vk, &params, &zkp_proof, &public_inputs)
                     .unwrap(),
             )
         })
