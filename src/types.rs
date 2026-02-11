@@ -207,8 +207,10 @@ pub fn compute_nullifier(leaf_bytes: &[u8], merkle_root: &[u8]) -> Result<[u8; H
         ));
     }
 
-    let leaf_field = bytes_to_field(&normalize_to_32_bytes(leaf_bytes));
-    let root_field = bytes_to_field(&normalize_to_32_bytes(merkle_root));
+    let leaf_normalized = normalize_to_32_bytes(leaf_bytes)?;
+    let root_normalized = normalize_to_32_bytes(merkle_root)?;
+    let leaf_field = bytes_to_field(&leaf_normalized);
+    let root_field = bytes_to_field(&root_normalized);
     let hash_field = poseidon_hash(leaf_field, root_field);
     Ok(field_to_bytes(hash_field))
 }
@@ -235,24 +237,28 @@ pub fn compute_nullifier_from_fields(leaf: pallas::Base, root: pallas::Base) -> 
 /// Converts a variable-length byte slice to 32 bytes.
 ///
 /// If the input is < 32 bytes, pads with zeros on the right.
-/// Caller must ensure input is <= 32 bytes.
 ///
 /// # Arguments
 ///
 /// * `bytes` - Byte slice to normalize (must be <= 32 bytes)
 ///
-/// # Panics
+/// # Returns
 ///
-/// Panics if input length exceeds 32 bytes
+/// 32-byte array with zero-padding if input is shorter
+///
+/// # Errors
+///
+/// Returns an error if input length exceeds 32 bytes
 #[inline]
-pub fn normalize_to_32_bytes(bytes: &[u8]) -> [u8; HASH_SIZE] {
-    assert!(
-        bytes.len() <= HASH_SIZE,
-        "Input must be at most {} bytes, got {}",
-        HASH_SIZE,
-        bytes.len()
-    );
+pub fn normalize_to_32_bytes(bytes: &[u8]) -> Result<[u8; HASH_SIZE]> {
+    if bytes.len() > HASH_SIZE {
+        return Err(anyhow::anyhow!(
+            "Input must be at most {} bytes, got {}",
+            HASH_SIZE,
+            bytes.len()
+        ));
+    }
     let mut arr = [0u8; HASH_SIZE];
     arr[..bytes.len()].copy_from_slice(bytes);
-    arr
+    Ok(arr)
 }
