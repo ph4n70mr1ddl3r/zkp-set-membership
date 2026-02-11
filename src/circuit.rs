@@ -236,6 +236,10 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
         config: Self::Config,
         mut layouter: impl Layouter<pallas::Base>,
     ) -> Result<(), Error> {
+        if self.siblings.len() > MAX_TREE_DEPTH {
+            return Err(Error::Synthesis);
+        }
+
         let poseidon_config = Arc::new(config.poseidon_config);
         let (leaf_cell, root_cell, nullifier_cell) = layouter.assign_region(
             || "assign input values",

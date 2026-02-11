@@ -42,6 +42,13 @@ fn main() -> anyhow::Result<()> {
     let count = args.count;
     let output_file = args.output_file;
 
+    if count == 0 {
+        return Err(anyhow!("Count must be greater than 0"));
+    }
+    if count > 1_000_000 {
+        return Err(anyhow!("Count must be less than 1,000,000 (got {})", count));
+    }
+
     println!("Generating {} random Ethereum addresses...", count);
     let addresses = generate_random_ethereum_addresses(count);
 
@@ -54,6 +61,14 @@ fn main() -> anyhow::Result<()> {
     }
 
     println!("Writing addresses to {}...", output_file.display());
+
+    if output_file.exists() {
+        eprintln!(
+            "Warning: Overwriting existing file: {}",
+            output_file.display()
+        );
+    }
+
     let mut file = File::create(&output_file)
         .with_context(|| format!("Failed to create output file: {}", output_file.display()))?;
     for address in &addresses {

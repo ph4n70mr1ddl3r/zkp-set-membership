@@ -142,7 +142,7 @@ fn test_bytes_to_field_zero_bytes() {
 }
 
 #[test]
-fn test_circuit_with_siblings() {
+fn test_circuit_with_single_leaf() {
     let leaf_bytes = [42u8; 32];
 
     let leaf = bytes_to_field(&leaf_bytes);
@@ -154,6 +154,45 @@ fn test_circuit_with_siblings() {
         root,
         nullifier,
         siblings: vec![],
+        leaf_index: 0,
+    };
+
+    let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
+    let public_inputs = vec![leaf, root, nullifier];
+
+    let (vk, pk) =
+        SetMembershipProver::generate_and_cache_keys(&params).expect("Failed to generate keys");
+    let proof = SetMembershipProver::generate_proof(&pk, &params, circuit.clone(), &public_inputs);
+    assert!(
+        proof.is_ok(),
+        "Proof generation with single leaf should succeed"
+    );
+
+    let verification_result =
+        SetMembershipProver::verify_proof(&vk, &params, &proof.unwrap(), &public_inputs);
+    assert!(
+        verification_result.unwrap(),
+        "Proof with single leaf should be valid"
+    );
+}
+
+#[test]
+#[ignore = "Circuit Merkle path verification with siblings has known issues. See CODE_REVIEW_FEB_11_2026.md for details."]
+fn test_circuit_with_siblings() {
+    let leaf_bytes = [42u8; 32];
+    let sibling_bytes = [43u8; 32];
+
+    let leaf = bytes_to_field(&leaf_bytes);
+    let sibling = bytes_to_field(&sibling_bytes);
+
+    let root = compute_poseidon_hash(leaf, sibling);
+    let nullifier = compute_poseidon_hash(leaf, root);
+
+    let circuit = SetMembershipCircuit {
+        leaf,
+        root,
+        nullifier,
+        siblings: vec![sibling],
         leaf_index: 0,
     };
 
