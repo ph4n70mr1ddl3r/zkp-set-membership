@@ -164,7 +164,7 @@ The proof is saved as a JSON file with the following structure:
 - **Poseidon hash for efficient hashing in-circuit**
 - **Merkle path verification enforces set membership**
 - **Nullifier computed as H(leaf || root) using Poseidon hash**
-- Circuit degree: k=11 (provides 2048 rows)
+- Circuit degree: k=12 (provides 4096 rows)
 - Public input constraints enforce cryptographic consistency
 
 ### Nullifier Generation
@@ -238,7 +238,7 @@ cargo fmt
 
 - Number of accounts must be a power of 2 for optimal Merkle tree construction
 - Proof generation can be CPU-intensive for large sets
-- Circuit parameters (k=11) limit proof complexity
+- Circuit parameters (k=12) limit proof complexity
 
 ## License
 

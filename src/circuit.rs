@@ -98,9 +98,18 @@ use crate::CIRCUIT_K;
 
 type PoseidonChipType = PoseidonChip<pallas::Base, 3, 2>;
 
+// Row offset for initial assignment (leaf, root)
 const INITIAL_ROW_OFFSET: usize = 0;
+
+// Row offset for nullifier assignment (after nullifier hash computation)
 const NULLIFIER_ROW_OFFSET: usize = 1;
+
+// Starting row for Merkle path verification (after nullifier computation at rows 0-1)
+// Rows 2-99 provide buffer/spacing between nullifier and Merkle path regions
 const SIBLING_ROW_OFFSET: usize = 100;
+
+// Rows per level in Merkle path (sibling, left, right, hash computation)
+// Each level needs ~50 rows to accommodate all assignments and Poseidon hash
 const ROW_INCREMENT: usize = 50;
 
 const MAX_TREE_DEPTH: usize = 12;
@@ -130,16 +139,19 @@ pub struct SetMembershipCircuit {
 }
 
 impl SetMembershipCircuit {
+    #[must_use]
     pub fn builder() -> SetMembershipCircuitBuilder {
         SetMembershipCircuitBuilder::default()
     }
 
+    #[must_use]
     pub fn validate_consistency(&self) -> bool {
         use crate::utils::poseidon_hash;
         let expected_nullifier = poseidon_hash(self.leaf, self.root);
         self.nullifier == expected_nullifier
     }
 
+    #[must_use]
     pub fn validate_leaf_index(&self) -> bool {
         let expected_depth = self.siblings.len();
         if expected_depth == 0 {
