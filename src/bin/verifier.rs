@@ -4,7 +4,7 @@ use halo2_proofs::poly::commitment::Params;
 use log::{debug, error, info};
 use pasta_curves::vesta;
 use std::fs;
-use std::io::{BufRead, BufReader, Seek, Write};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use zkp_set_membership::{
     circuit::SetMembershipProver,
@@ -55,41 +55,41 @@ fn bytes_to_fixed_array(bytes: &[u8], name: &str) -> Result<[u8; HASH_SIZE]> {
 fn check_and_add_nullifier(nullifier_file: &Path, nullifier: &str) -> Result<()> {
     let normalized_nullifier = nullifier.trim().to_lowercase();
 
-    let file = fs::OpenOptions::new()
-        .read(true)
-        .write(true)
+    let existing_nullifiers: std::collections::HashSet<String> = if nullifier_file.exists() {
+        fs::read_to_string(nullifier_file)
+            .with_context(|| {
+                format!(
+                    "Failed to read nullifier file: {}",
+                    nullifier_file.display()
+                )
+            })?
+            .lines()
+            .map(|line| line.trim().to_lowercase())
+            .collect()
+    } else {
+        std::collections::HashSet::new()
+    };
+
+    if existing_nullifiers.contains(&normalized_nullifier) {
+        return Err(anyhow::anyhow!("Nullifier already exists in file"));
+    }
+
+    let mut file = fs::OpenOptions::new()
         .create(true)
-        .truncate(false)
+        .append(true)
         .open(nullifier_file)
-        .context("Failed to open nullifier file")?;
+        .with_context(|| {
+            format!(
+                "Failed to open nullifier file: {}",
+                nullifier_file.display()
+            )
+        })?;
 
-    let reader = BufReader::new(&file);
-    for line in reader.lines() {
-        let line = line.context("Failed to read line from nullifier file")?;
-        if line.trim().to_lowercase() == normalized_nullifier {
-            return Err(anyhow::anyhow!("Nullifier already exists in file"));
-        }
+    if !existing_nullifiers.is_empty() {
+        writeln!(file).context("Failed to write newline")?;
     }
 
-    let mut writer = std::io::BufWriter::new(&file);
-    writer
-        .seek(std::io::SeekFrom::End(0))
-        .context("Failed to seek to end of file")?;
-
-    let pos = writer
-        .stream_position()
-        .context("Failed to get file position")?;
-
-    if pos > 0 {
-        writer.write_all(b"\n").context("Failed to write newline")?;
-    }
-
-    writer
-        .write_all(normalized_nullifier.as_bytes())
-        .context("Failed to write nullifier")?;
-    writer.write_all(b"\n").context("Failed to write newline")?;
-    writer.flush().context("Failed to flush writer")?;
-
+    writeln!(file, "{}", normalized_nullifier).context("Failed to write nullifier")?;
     Ok(())
 }
 
@@ -116,9 +116,8 @@ fn main() -> Result<()> {
     let max_proof_file_size = get_max_proof_file_size();
     if metadata.len() > max_proof_file_size {
         return Err(anyhow::anyhow!(
-            "Proof file too large: {} bytes (max {} bytes). This may indicate a corrupted or invalid proof file. To fix: 1) Verify the proof file is valid, 2) Check if the proof was generated with compatible parameters, or 3) Set ZKP_MAX_PROOF_FILE_SIZE environment variable",
-            metadata.len(),
-            max_proof_file_size
+            "Proof file too large: {} bytes (max {} bytes). Set ZKP_MAX_PROOF_FILE_SIZE to override",
+            metadata.len(), max_proof_file_size
         ));
     }
 
@@ -146,11 +145,8 @@ fn main() -> Result<()> {
 
     if proof.zkp_proof.len() > get_max_zk_proof_size() {
         return Err(anyhow::anyhow!(
-            "ZK proof size {} bytes exceeds limit of {} bytes. The proof may be malformed or generated with incompatible parameters. To fix: 1) Regenerate the proof with the current prover binary, 2) Verify CIRCUIT_K={} parameter matches between prover and verifier (both must be {}), 3) Set ZKP_MAX_ZK_PROOF_SIZE environment variable to a higher value (current: {})",
+            "ZK proof size {} bytes exceeds limit {} bytes. Set ZKP_MAX_ZK_PROOF_SIZE to override",
             proof.zkp_proof.len(),
-            get_max_zk_proof_size(),
-            CIRCUIT_K,
-            1 << CIRCUIT_K,
             get_max_zk_proof_size()
         ));
     }

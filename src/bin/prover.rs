@@ -111,10 +111,8 @@ fn main() -> Result<()> {
     let max_accounts_size = get_max_accounts_file_size();
     if content_size > max_accounts_size {
         return Err(anyhow::anyhow!(
-            "Accounts file too large: {} bytes (max {} bytes). To fix: 1) Reduce the number of accounts, 2) Split into multiple files, or 3) Set ZKP_MAX_ACCOUNTS_FILE_SIZE environment variable (current max: {} bytes)",
-            content_size,
-            max_accounts_size,
-            max_accounts_size
+            "Accounts file too large: {} bytes (max {} bytes). Set ZKP_MAX_ACCOUNTS_FILE_SIZE to override",
+            content_size, max_accounts_size
         ));
     }
 
@@ -159,10 +157,8 @@ fn main() -> Result<()> {
 
     if normalized_addresses.len() > (1 << CIRCUIT_K) {
         return Err(anyhow::anyhow!(
-            "Number of addresses {} exceeds CIRCUIT_K={} capacity of {} (max allowed: {}). Please reduce the number of addresses or increase CIRCUIT_K in src/lib.rs",
+            "Number of addresses {} exceeds circuit capacity {} (1 << CIRCUIT_K)",
             normalized_addresses.len(),
-            CIRCUIT_K,
-            1 << CIRCUIT_K,
             1 << CIRCUIT_K
         ));
     }
@@ -171,6 +167,7 @@ fn main() -> Result<()> {
 
     let mut leaf_hashes = Vec::with_capacity(addresses.len());
     let mut leaf_index = None;
+    let mut prover_count = 0;
 
     for (i, (address, normalized)) in addresses
         .iter()
@@ -183,23 +180,27 @@ fn main() -> Result<()> {
         leaf_hashes.push(address_bytes);
 
         if normalized == &prover_normalized {
-            if leaf_index.is_some() {
-                return Err(anyhow::anyhow!(
-                    "Duplicate prover address found in accounts file at line {}",
-                    i + 1
-                ));
-            }
+            prover_count += 1;
             leaf_index = Some(i);
             info!("Found prover address at index {i}");
             println!("Found prover address at index {i}");
         }
     }
 
-    let leaf_index = leaf_index.context(format!(
-        "Prover address '0x{}' not found in accounts file '{}'. Ensure: 1) Your private key corresponds to an address in the set, 2) The address is in lowercase format, 3) The accounts file contains exactly one address per line",
-        prover_address_str,
-        args.accounts_file.display()
-    ))?;
+    if prover_count == 0 {
+        return Err(anyhow::anyhow!(
+            "Prover address '0x{}' not found in accounts file. Ensure your private key corresponds to an address in the set",
+            prover_address_str
+        ));
+    }
+    if prover_count > 1 {
+        return Err(anyhow::anyhow!(
+            "Duplicate prover address found {} times in accounts file",
+            prover_count
+        ));
+    }
+
+    let leaf_index = leaf_index.expect("validated above: prover_count > 0 ensures Some");
 
     info!("Building Merkle tree with {} leaves", leaf_hashes.len());
     println!("Building Merkle tree...");
@@ -305,16 +306,6 @@ fn main() -> Result<()> {
 
     let json_output =
         serde_json::to_string_pretty(&output).context("Failed to serialize proof to JSON")?;
-
-    let metadata = fs::metadata(parent_dir).context("Failed to read directory metadata")?;
-    let perms = metadata.permissions();
-
-    if perms.readonly() {
-        return Err(anyhow::anyhow!(
-            "Output directory is not writable: {}",
-            parent_dir.display()
-        ));
-    }
 
     if args.output.exists() {
         eprintln!(

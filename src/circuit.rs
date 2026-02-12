@@ -494,7 +494,7 @@ impl SetMembershipProver {
         let vk = Arc::new(vk);
         let pk = Arc::new(pk);
 
-        let keys = (vk.clone(), pk.clone());
+        let keys = (vk, pk);
         let _ = CACHED_KEYS.set(keys.clone());
 
         Ok(keys)
@@ -516,8 +516,8 @@ impl SetMembershipProver {
     ///
     /// `Some((vk, pk))` if keys are available, `None` otherwise
     #[must_use]
-    pub fn get_keys() -> Option<CachedKeys> {
-        CACHED_KEYS.get().cloned()
+    pub fn get_keys() -> Option<&'static CachedKeys> {
+        CACHED_KEYS.get()
     }
 
     pub fn generate_proof(
