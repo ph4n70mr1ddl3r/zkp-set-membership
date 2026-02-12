@@ -60,12 +60,12 @@
 //! # Constraint Flow
 //!
 //! 1. **Nullifier Constraint**:
-//!    - Instance[0] (leaf) + Instance[1] (root) --[Poseidon]--> Instance[2] (nullifier)
+//!    - Instance\[0\] (leaf) + Instance\[1\] (root) --\[Poseidon\]--> Instance\[2\] (nullifier)
 //!
 //! 2. **Merkle Path Verification**:
 //!    - For each level i from 0 to depth-1:
-//!      - If leaf_index % 2 == 0: left = current_hash, right = sibling[i]
-//!      - If leaf_index % 2 == 1: left = sibling[i], right = current_hash
+//!      - If leaf_index % 2 == 0: left = current_hash, right = sibling\[i\]
+//!      - If leaf_index % 2 == 1: left = sibling\[i\], right = current_hash
 //!      - H(left || right) -> current_hash
 //!      - leaf_index /= 2
 //!    - Final constraint: current_hash == root

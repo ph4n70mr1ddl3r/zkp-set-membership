@@ -69,6 +69,17 @@ pub fn validate_and_strip_hex(input: &str, expected_len: usize) -> Result<String
 /// Returns an error if:
 /// - The string is empty
 /// - The string contains non-hex characters
+///
+/// # Examples
+///
+/// ```
+/// use zkp_set_membership::utils::validate_hex_string;
+///
+/// assert!(validate_hex_string("0x1234abcd"));
+/// assert!(validate_hex_string("1234abcd"));
+/// assert!(!validate_hex_string("0x1234xyzw"));
+/// assert!(!validate_hex_string(""));
+/// ```
 #[must_use]
 pub fn validate_hex_string(input: &str) -> bool {
     let stripped = strip_hex_prefix(input);
@@ -93,6 +104,16 @@ const BASE_U64: u64 = 256;
 /// # Returns
 ///
 /// Field element in the Pallas curve
+///
+/// # Examples
+///
+/// ```
+/// use zkp_set_membership::utils::bytes_to_field;
+///
+/// let bytes = [42u8; 32];
+/// let field = bytes_to_field(&bytes);
+/// assert_ne!(field, pasta_curves::pallas::Base::zero());
+/// ```
 #[inline]
 #[must_use]
 pub fn bytes_to_field(bytes: &[u8; 32]) -> pallas::Base {
@@ -115,6 +136,17 @@ pub fn bytes_to_field(bytes: &[u8; 32]) -> pallas::Base {
 /// # Returns
 ///
 /// 32-byte array representation of the field element
+///
+/// # Examples
+///
+/// ```
+/// use zkp_set_membership::utils::{bytes_to_field, field_to_bytes};
+///
+/// let bytes = [42u8; 32];
+/// let field = bytes_to_field(&bytes);
+/// let result = field_to_bytes(field);
+/// assert_eq!(result, bytes);
+/// ```
 #[inline]
 #[must_use]
 pub fn field_to_bytes(field: pallas::Base) -> [u8; 32] {

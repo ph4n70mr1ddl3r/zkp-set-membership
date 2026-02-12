@@ -280,6 +280,18 @@ pub fn compute_nullifier(leaf_bytes: &[u8], merkle_root: &[u8]) -> Result<[u8; H
 /// # Returns
 ///
 /// Nullifier as field element
+///
+/// # Examples
+///
+/// ```
+/// use zkp_set_membership::types::compute_nullifier_from_fields;
+/// use pasta_curves::pallas;
+///
+/// let leaf = pallas::Base::from(42);
+/// let root = pallas::Base::from(100);
+/// let nullifier = compute_nullifier_from_fields(leaf, root);
+/// assert_ne!(nullifier, pallas::Base::zero());
+/// ```
 #[must_use]
 #[inline]
 pub fn compute_nullifier_from_fields(leaf: pallas::Base, root: pallas::Base) -> pallas::Base {
@@ -301,6 +313,17 @@ pub fn compute_nullifier_from_fields(leaf: pallas::Base, root: pallas::Base) -> 
 /// # Errors
 ///
 /// Returns an error if input length exceeds 32 bytes
+///
+/// # Examples
+///
+/// ```
+/// use zkp_set_membership::types::normalize_to_32_bytes;
+///
+/// let input = vec![1u8, 2, 3];
+/// let result = normalize_to_32_bytes(&input).unwrap();
+/// assert_eq!(result[0..3], [1, 2, 3]);
+/// assert_eq!(result[3..], [0u8; 29]);
+/// ```
 #[inline]
 pub fn normalize_to_32_bytes(bytes: &[u8]) -> Result<[u8; HASH_SIZE]> {
     if bytes.len() > HASH_SIZE {
