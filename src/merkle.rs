@@ -9,7 +9,7 @@ use crate::utils::{bytes_to_field, field_to_bytes, poseidon_hash};
 use anyhow;
 use std::fmt;
 
-const MAX_LEAVES: usize = 2048;
+const MAX_LEAVES: usize = 4096;
 
 /// A Merkle proof for leaf inclusion.
 ///
