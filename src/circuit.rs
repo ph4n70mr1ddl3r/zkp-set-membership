@@ -318,7 +318,6 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
             return Err(Error::Synthesis);
         }
 
-        let poseidon_config = Arc::new(config.poseidon_config);
         let (leaf_cell, root_cell, nullifier_cell) = layouter.assign_region(
             || "assign input values",
             |mut region| {
@@ -349,9 +348,6 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
             },
         )?;
 
-        let leaf_cell_copy = leaf_cell.clone();
-        let root_cell_copy = root_cell.clone();
-
         let poseidon_hash = PoseidonHash::<
             pallas::Base,
             PoseidonChipType,
@@ -360,13 +356,13 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
             3,
             2,
         >::init(
-            PoseidonChipType::construct((*poseidon_config).clone()),
+            PoseidonChipType::construct(config.poseidon_config.clone()),
             layouter.namespace(|| "init nullifier hash"),
         )?;
 
         let computed_nullifier = poseidon_hash.hash(
             layouter.namespace(|| "compute nullifier"),
-            [leaf_cell_copy, root_cell_copy],
+            [leaf_cell.clone(), root_cell.clone()],
         )?;
 
         layouter.constrain_instance(leaf_cell.cell(), config.instance, 0)?;
@@ -439,7 +435,7 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
                 3,
                 2,
             >::init(
-                PoseidonChipType::construct((*poseidon_config).clone()),
+                PoseidonChipType::construct(config.poseidon_config.clone()),
                 layouter.namespace(|| format!("init merkle hash {}", i)),
             )?;
 

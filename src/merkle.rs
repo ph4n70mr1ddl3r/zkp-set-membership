@@ -55,17 +55,16 @@ fn hash_pair(left: &[u8; HASH_SIZE], right: &[u8; HASH_SIZE]) -> [u8; HASH_SIZE]
 
 #[inline]
 fn compute_next_level(level: &[[u8; HASH_SIZE]]) -> Vec<[u8; HASH_SIZE]> {
-    let new_level_capacity = level.len().div_ceil(2);
-    let mut new_level = Vec::with_capacity(new_level_capacity);
-    for i in (0..level.len()).step_by(2) {
-        if i + 1 < level.len() {
-            let hash = hash_pair(&level[i], &level[i + 1]);
-            new_level.push(hash);
-        } else {
-            new_level.push(level[i]);
-        }
-    }
-    new_level
+    level
+        .chunks(2)
+        .map(|chunk| {
+            if chunk.len() == 2 {
+                hash_pair(&chunk[0], &chunk[1])
+            } else {
+                chunk[0]
+            }
+        })
+        .collect()
 }
 
 impl MerkleTree {

@@ -177,45 +177,6 @@ fn test_circuit_with_single_leaf() {
 }
 
 #[test]
-#[ignore = "Test with siblings currently ignored. The circuit synthesis works correctly with siblings, but this test was originally written with incorrect expectations. The root value should be computed from the full Merkle tree including all siblings, not just H(leaf || sibling[0]). A properly implemented test would build a full Merkle tree with multiple leaves and verify the circuit against the actual tree root."]
-fn test_circuit_with_siblings() {
-    let leaf_bytes = [42u8; 32];
-    let sibling_bytes = [43u8; 32];
-
-    let leaf = bytes_to_field(&leaf_bytes);
-    let sibling = bytes_to_field(&sibling_bytes);
-
-    let root = compute_poseidon_hash(leaf, sibling);
-    let nullifier = compute_poseidon_hash(leaf, root);
-
-    let circuit = SetMembershipCircuit {
-        leaf,
-        root,
-        nullifier,
-        siblings: vec![sibling],
-        leaf_index: 0,
-    };
-
-    let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
-    let public_inputs = vec![leaf, root, nullifier];
-
-    let (vk, pk) =
-        SetMembershipProver::generate_and_cache_keys(&params).expect("Failed to generate keys");
-    let proof = SetMembershipProver::generate_proof(&pk, &params, circuit.clone(), &public_inputs);
-    assert!(
-        proof.is_ok(),
-        "Proof generation with siblings should succeed"
-    );
-
-    let verification_result =
-        SetMembershipProver::verify_proof(&vk, &params, &proof.unwrap(), &public_inputs);
-    assert!(
-        verification_result.unwrap(),
-        "Proof with siblings should be valid"
-    );
-}
-
-#[test]
 fn test_validate_consistency() {
     let leaf_bytes = [42u8; 32];
     let sibling_bytes = [43u8; 32];
