@@ -7,10 +7,12 @@ use halo2_gadgets::poseidon::primitives::{
 use pasta_curves::group::ff::PrimeField;
 use pasta_curves::pallas;
 
+#[inline]
 fn is_valid_hex_string(s: &str) -> bool {
     s.chars().all(|c| c.is_ascii_hexdigit())
 }
 
+#[inline]
 fn strip_hex_prefix(input: &str) -> &str {
     input
         .trim()

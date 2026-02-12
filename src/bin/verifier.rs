@@ -55,20 +55,21 @@ fn bytes_to_fixed_array(bytes: &[u8], name: &str) -> Result<[u8; HASH_SIZE]> {
 fn check_and_add_nullifier(nullifier_file: &Path, nullifier: &str) -> Result<()> {
     let normalized_nullifier = nullifier.trim().to_lowercase();
 
-    let existing_nullifiers: std::collections::HashSet<String> = if nullifier_file.exists() {
-        fs::read_to_string(nullifier_file)
-            .with_context(|| {
-                format!(
-                    "Failed to read nullifier file: {}",
-                    nullifier_file.display()
-                )
-            })?
-            .lines()
-            .map(|line| line.trim().to_lowercase())
-            .collect()
+    let existing_content = if nullifier_file.exists() {
+        fs::read_to_string(nullifier_file).with_context(|| {
+            format!(
+                "Failed to read nullifier file: {}",
+                nullifier_file.display()
+            )
+        })?
     } else {
-        std::collections::HashSet::new()
+        String::new()
     };
+
+    let existing_nullifiers: std::collections::HashSet<String> = existing_content
+        .lines()
+        .map(|line| line.trim().to_lowercase())
+        .collect();
 
     if existing_nullifiers.contains(&normalized_nullifier) {
         return Err(anyhow::anyhow!("Nullifier already exists in file"));

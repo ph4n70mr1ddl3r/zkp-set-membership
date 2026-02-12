@@ -53,7 +53,6 @@ fn hash_pair(left: &[u8; HASH_SIZE], right: &[u8; HASH_SIZE]) -> [u8; HASH_SIZE]
     field_to_bytes(hash_field)
 }
 
-#[inline]
 fn compute_next_level(level: &[[u8; HASH_SIZE]]) -> Vec<[u8; HASH_SIZE]> {
     level
         .chunks(2)
@@ -77,7 +76,7 @@ impl MerkleTree {
     /// A `MerkleTree` instance with computed root hash
     ///
     /// # Errors
-    /// Returns an error if number of leaves exceeds MAX_LEAVES (2048).
+    /// Returns an error if number of leaves exceeds MAX_LEAVES (4096).
     ///
     /// # Note
     /// For optimal performance, the number of leaves should be a power of 2.
@@ -198,6 +197,10 @@ impl MerkleTree {
     #[must_use]
     pub fn verify_proof(&self, proof: &MerkleProof) -> bool {
         if proof.root != self.root {
+            return false;
+        }
+
+        if proof.index >= self.leaves.len() {
             return false;
         }
 
