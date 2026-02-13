@@ -6,7 +6,6 @@
 
 use crate::types::HASH_SIZE;
 use crate::utils::{bytes_to_field, field_to_bytes, poseidon_hash};
-use anyhow;
 use std::fmt;
 
 const MAX_LEAVES: usize = 4096;

@@ -109,7 +109,11 @@ const NULLIFIER_ROW_OFFSET: usize = 1;
 const SIBLING_ROW_OFFSET: usize = 100;
 
 // Rows per level in Merkle path (sibling, left, right, hash computation)
-// Each level needs ~50 rows to accommodate all assignments and Poseidon hash
+// Each level needs ~50 rows to accommodate all assignments and Poseidon hash.
+// This value was chosen based on Halo2 layout requirements:
+// - Row 0: sibling assignment (advice[4])
+// - Row 1: left and right assignment (advice[5] and advice[6])
+// - Rows 2-49: Poseidon hash computation with 3 full rounds and 2 partial rounds
 const ROW_INCREMENT: usize = 50;
 
 const MAX_TREE_DEPTH: usize = 12;

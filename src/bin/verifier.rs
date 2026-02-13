@@ -5,7 +5,7 @@ use log::{debug, error, info};
 use pasta_curves::vesta;
 use std::fs;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use zkp_set_membership::{
     circuit::SetMembershipProver,
     types::{ZKProofOutput, HASH_SIZE},
@@ -157,8 +157,7 @@ fn main() -> Result<()> {
     println!("Verifying ZK proof...");
     let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
 
-    let proof_path = PathBuf::from(&args.proof_file);
-    let mut nullifier_path = proof_path.clone();
+    let mut nullifier_path = proof_path.to_path_buf();
     nullifier_path.set_extension("nullifiers.txt");
     let nullifier_file = nullifier_path
         .to_str()

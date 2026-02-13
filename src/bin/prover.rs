@@ -59,6 +59,9 @@ fn address_to_bytes_normalized(normalized_address: &str) -> Result<[u8; 32]> {
     Ok(full_bytes)
 }
 
+/// Validates and normalizes a single Ethereum address.
+///
+/// Returns a lowercase hex string without the 0x prefix.
 #[inline]
 fn normalize_address(address: &str) -> Result<String> {
     validate_and_strip_hex(address, ADDRESS_HEX_LENGTH).map(|s| s.to_lowercase())

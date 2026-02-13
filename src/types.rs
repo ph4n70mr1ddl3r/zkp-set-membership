@@ -6,6 +6,9 @@ use log::debug;
 use pasta_curves::pallas;
 use serde::{Deserialize, Serialize};
 
+// Hash output size in bytes (32 bytes = 256 bits).
+// Matches the Pallas field element size, which is the field used for all
+// cryptographic operations in this ZKP system.
 pub const HASH_SIZE: usize = 32;
 
 /// Verification key data for ZK proof verification.
@@ -88,7 +91,9 @@ pub struct ZKProofOutput {
 }
 
 impl ZKProofOutput {
+    // Acceptable clock drift in seconds to account for system clock skew
     const TIMESTAMP_TOLERANCE_SECS: u64 = 30;
+    // Maximum proof age in seconds (24 hours) to prevent use of expired proofs
     const TIMESTAMP_MAX_AGE_SECS: u64 = 86400;
 
     /// Validates the proof output structure and cryptographic consistency.
@@ -246,31 +251,23 @@ impl ZKProofOutput {
 /// assert_eq!(nullifier.len(), 32);
 /// ```
 pub fn compute_nullifier(leaf_bytes: &[u8], merkle_root: &[u8]) -> Result<[u8; HASH_SIZE]> {
-    if leaf_bytes.len() != HASH_SIZE {
-        return Err(anyhow::anyhow!(
+    let leaf_arr: [u8; HASH_SIZE] = leaf_bytes.try_into().map_err(|_| {
+        anyhow::anyhow!(
             "Leaf must be exactly {} bytes, got {} bytes",
             HASH_SIZE,
             leaf_bytes.len()
-        ));
-    }
-    if merkle_root.len() != HASH_SIZE {
-        return Err(anyhow::anyhow!(
+        )
+    })?;
+    let root_arr: [u8; HASH_SIZE] = merkle_root.try_into().map_err(|_| {
+        anyhow::anyhow!(
             "Root must be exactly {} bytes, got {} bytes",
             HASH_SIZE,
             merkle_root.len()
-        ));
-    }
+        )
+    })?;
 
-    let leaf_field = bytes_to_field(
-        leaf_bytes
-            .try_into()
-            .expect("leaf_bytes length validated to be HASH_SIZE"),
-    );
-    let root_field = bytes_to_field(
-        merkle_root
-            .try_into()
-            .expect("merkle_root length validated to be HASH_SIZE"),
-    );
+    let leaf_field = bytes_to_field(&leaf_arr);
+    let root_field = bytes_to_field(&root_arr);
     let hash_field = poseidon_hash(leaf_field, root_field);
     Ok(field_to_bytes(hash_field))
 }
