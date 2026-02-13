@@ -46,6 +46,7 @@ struct Args {
     output: PathBuf,
 }
 
+#[inline]
 fn address_to_bytes_normalized(normalized_address: &str) -> Result<[u8; 32]> {
     let bytes = hex::decode(normalized_address).context("Failed to decode address from hex")?;
 
@@ -58,6 +59,7 @@ fn address_to_bytes_normalized(normalized_address: &str) -> Result<[u8; 32]> {
     Ok(full_bytes)
 }
 
+#[inline]
 fn normalize_address(address: &str) -> Result<String> {
     validate_and_strip_hex(address, ADDRESS_HEX_LENGTH).map(|s| s.to_lowercase())
 }

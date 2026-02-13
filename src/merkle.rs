@@ -53,17 +53,18 @@ fn hash_pair(left: &[u8; HASH_SIZE], right: &[u8; HASH_SIZE]) -> [u8; HASH_SIZE]
     field_to_bytes(hash_field)
 }
 
+#[inline]
 fn compute_next_level(level: &[[u8; HASH_SIZE]]) -> Vec<[u8; HASH_SIZE]> {
-    level
-        .chunks(2)
-        .map(|chunk| {
-            if chunk.len() == 2 {
-                hash_pair(&chunk[0], &chunk[1])
-            } else {
-                chunk[0]
-            }
-        })
-        .collect()
+    let mut result = Vec::with_capacity(level.len().div_ceil(2));
+    for chunk in level.chunks(2) {
+        let hash = if chunk.len() == 2 {
+            hash_pair(&chunk[0], &chunk[1])
+        } else {
+            chunk[0]
+        };
+        result.push(hash);
+    }
+    result
 }
 
 impl MerkleTree {
@@ -107,6 +108,7 @@ impl MerkleTree {
         Ok(MerkleTree { root, leaves })
     }
 
+    #[inline]
     fn compute_root(leaves: &[[u8; HASH_SIZE]]) -> [u8; HASH_SIZE] {
         let mut level = leaves.to_vec();
 
