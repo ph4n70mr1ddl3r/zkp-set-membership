@@ -115,9 +115,11 @@ const ROW_INCREMENT: usize = 50;
 const MAX_TREE_DEPTH: usize = 12;
 
 const _: () = {
+    const MAX_USED_ROWS: usize = SIBLING_ROW_OFFSET + (MAX_TREE_DEPTH * ROW_INCREMENT);
+    const CIRCUIT_CAPACITY: usize = 1 << CIRCUIT_K;
     const _: () = assert!(
-        SIBLING_ROW_OFFSET + (MAX_TREE_DEPTH * ROW_INCREMENT) < (1 << CIRCUIT_K),
-        "Circuit row offsets exceed circuit capacity for CIRCUIT_K=12"
+        MAX_USED_ROWS < CIRCUIT_CAPACITY,
+        "Circuit row offsets exceed circuit capacity"
     );
 };
 
@@ -490,8 +492,10 @@ impl SetMembershipProver {
         let vk = Arc::new(vk);
         let pk = Arc::new(pk);
 
-        let keys = (vk, pk);
-        let _ = CACHED_KEYS.set(keys.clone());
+        let keys = (vk.clone(), pk.clone());
+        if CACHED_KEYS.set(keys.clone()).is_err() {
+            return Ok(keys);
+        }
 
         Ok(keys)
     }

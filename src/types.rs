@@ -261,8 +261,16 @@ pub fn compute_nullifier(leaf_bytes: &[u8], merkle_root: &[u8]) -> Result<[u8; H
         ));
     }
 
-    let leaf_field = bytes_to_field(leaf_bytes.try_into().expect("validated length above"));
-    let root_field = bytes_to_field(merkle_root.try_into().expect("validated length above"));
+    let leaf_field = bytes_to_field(
+        leaf_bytes
+            .try_into()
+            .expect("leaf_bytes length validated to be HASH_SIZE"),
+    );
+    let root_field = bytes_to_field(
+        merkle_root
+            .try_into()
+            .expect("merkle_root length validated to be HASH_SIZE"),
+    );
     let hash_field = poseidon_hash(leaf_field, root_field);
     Ok(field_to_bytes(hash_field))
 }
