@@ -492,9 +492,10 @@ impl SetMembershipProver {
         let vk = Arc::new(vk);
         let pk = Arc::new(pk);
 
-        let keys = (vk.clone(), pk.clone());
+        let keys = (vk, pk);
         if CACHED_KEYS.set(keys.clone()).is_err() {
-            return Ok(keys);
+            log::warn!("Keys were already set by another thread, using that instance");
+            return Ok(CACHED_KEYS.get().unwrap().clone());
         }
 
         Ok(keys)

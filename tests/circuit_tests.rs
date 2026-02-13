@@ -1,22 +1,14 @@
 use halo2_proofs::poly::commitment::Params;
 use pasta_curves::{pallas, vesta};
 use zkp_set_membership::circuit::{SetMembershipCircuit, SetMembershipProver};
-use zkp_set_membership::utils::bytes_to_field;
+use zkp_set_membership::utils::{bytes_to_field, poseidon_hash};
 use zkp_set_membership::CIRCUIT_K;
-
-fn compute_poseidon_hash(left: pallas::Base, right: pallas::Base) -> pallas::Base {
-    use halo2_gadgets::poseidon::primitives::{
-        self as poseidon, ConstantLength, P128Pow5T3 as PoseidonSpec,
-    };
-    let inputs = [left, right];
-    poseidon::Hash::<_, PoseidonSpec, ConstantLength<2>, 3, 2>::init().hash(inputs)
-}
 
 fn generate_valid_test_data(leaf_bytes: [u8; 32]) -> (SetMembershipCircuit, Vec<pallas::Base>) {
     let leaf = bytes_to_field(&leaf_bytes);
 
     let root = leaf;
-    let nullifier = compute_poseidon_hash(leaf, root);
+    let nullifier = poseidon_hash(leaf, root);
 
     let circuit = SetMembershipCircuit {
         leaf,
@@ -56,7 +48,7 @@ fn test_circuit_proof_generation() {
 fn test_circuit_with_zero_values() {
     let leaf = pallas::Base::zero();
     let root = pallas::Base::zero();
-    let nullifier = compute_poseidon_hash(leaf, root);
+    let nullifier = poseidon_hash(leaf, root);
 
     let circuit = SetMembershipCircuit {
         leaf,
@@ -111,7 +103,7 @@ fn test_proof_with_invalid_public_inputs() {
         SetMembershipProver::generate_proof(&pk, &params, circuit.clone(), &public_inputs).unwrap();
 
     let invalid_leaf = bytes_to_field(&[99u8; 32]);
-    let invalid_nullifier = compute_poseidon_hash(invalid_leaf, circuit.root);
+    let invalid_nullifier = poseidon_hash(invalid_leaf, circuit.root);
     let invalid_inputs = vec![invalid_leaf, circuit.root, invalid_nullifier];
     let result = SetMembershipProver::verify_proof(&vk, &params, &proof, &invalid_inputs);
 
@@ -147,7 +139,7 @@ fn test_circuit_with_single_leaf() {
 
     let leaf = bytes_to_field(&leaf_bytes);
     let root = leaf;
-    let nullifier = compute_poseidon_hash(leaf, root);
+    let nullifier = poseidon_hash(leaf, root);
 
     let circuit = SetMembershipCircuit {
         leaf,
@@ -184,8 +176,8 @@ fn test_validate_consistency() {
     let leaf = bytes_to_field(&leaf_bytes);
     let sibling = bytes_to_field(&sibling_bytes);
 
-    let root = compute_poseidon_hash(leaf, sibling);
-    let nullifier = compute_poseidon_hash(leaf, root);
+    let root = poseidon_hash(leaf, sibling);
+    let nullifier = poseidon_hash(leaf, root);
 
     let circuit = SetMembershipCircuit {
         leaf,
@@ -206,7 +198,7 @@ fn test_validate_consistency_fails() {
     let leaf = bytes_to_field(&leaf_bytes);
     let sibling = bytes_to_field(&sibling_bytes);
 
-    let root = compute_poseidon_hash(leaf, sibling);
+    let root = poseidon_hash(leaf, sibling);
     let wrong_nullifier = pallas::Base::from(12345);
 
     let circuit = SetMembershipCircuit {
@@ -228,8 +220,8 @@ fn test_leaf_index_out_of_bounds() {
     let leaf = bytes_to_field(&leaf_bytes);
     let sibling = bytes_to_field(&sibling_bytes);
 
-    let root = compute_poseidon_hash(leaf, sibling);
-    let nullifier = compute_poseidon_hash(leaf, root);
+    let root = poseidon_hash(leaf, sibling);
+    let nullifier = poseidon_hash(leaf, root);
 
     let circuit = SetMembershipCircuit {
         leaf,
@@ -250,8 +242,8 @@ fn test_leaf_index_valid_bounds() {
     let leaf = bytes_to_field(&leaf_bytes);
     let sibling = bytes_to_field(&sibling_bytes);
 
-    let root = compute_poseidon_hash(leaf, sibling);
-    let nullifier = compute_poseidon_hash(leaf, root);
+    let root = poseidon_hash(leaf, sibling);
+    let nullifier = poseidon_hash(leaf, root);
 
     let circuit = SetMembershipCircuit {
         leaf,
@@ -272,8 +264,8 @@ fn test_leaf_index_builder_validation() {
     let leaf = bytes_to_field(&leaf_bytes);
     let sibling = bytes_to_field(&sibling_bytes);
 
-    let root = compute_poseidon_hash(leaf, sibling);
-    let nullifier = compute_poseidon_hash(leaf, root);
+    let root = poseidon_hash(leaf, sibling);
+    let nullifier = poseidon_hash(leaf, root);
 
     let result = SetMembershipCircuit::builder()
         .leaf(leaf)
