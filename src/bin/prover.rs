@@ -113,8 +113,8 @@ fn main() -> Result<()> {
     let max_accounts_size = get_max_accounts_file_size();
     if content_size > max_accounts_size {
         return Err(anyhow::anyhow!(
-            "Accounts file too large: {} bytes (max {} bytes). Set ZKP_MAX_ACCOUNTS_FILE_SIZE to override",
-            content_size, max_accounts_size
+            "Accounts file too large: {} bytes (max {} bytes). Set ZKP_MAX_ACCOUNTS_FILE_SIZE to override. File: {}",
+            content_size, max_accounts_size, args.accounts_file.display()
         ));
     }
 

@@ -146,9 +146,10 @@ fn main() -> Result<()> {
 
     if proof.zkp_proof.len() > get_max_zk_proof_size() {
         return Err(anyhow::anyhow!(
-            "ZK proof size {} bytes exceeds limit {} bytes. Set ZKP_MAX_ZK_PROOF_SIZE to override",
+            "ZK proof size {} bytes exceeds limit {} bytes. Set ZKP_MAX_ZK_PROOF_SIZE to override. File: {}",
             proof.zkp_proof.len(),
-            get_max_zk_proof_size()
+            get_max_zk_proof_size(),
+            args.proof_file
         ));
     }
 
