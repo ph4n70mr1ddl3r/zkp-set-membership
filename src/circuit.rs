@@ -344,6 +344,10 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
             return Err(Error::Synthesis);
         }
 
+        if self.siblings.is_empty() && self.leaf_index != 0 {
+            return Err(Error::Synthesis);
+        }
+
         let (leaf_cell, root_cell, nullifier_cell) = layouter.assign_region(
             || "assign input values",
             |mut region| {

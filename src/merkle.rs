@@ -70,7 +70,8 @@ fn hash_pair(left: &[u8; HASH_SIZE], right: &[u8; HASH_SIZE]) -> [u8; HASH_SIZE]
 
 #[inline]
 fn compute_next_level(level: &[[u8; HASH_SIZE]]) -> Vec<[u8; HASH_SIZE]> {
-    let mut result = Vec::with_capacity(level.len().div_ceil(2));
+    let chunk_count = level.len() / 2 + (level.len() % 2);
+    let mut result = Vec::with_capacity(chunk_count);
     for chunk in level.chunks_exact(2) {
         result.push(hash_pair(&chunk[0], &chunk[1]));
     }
@@ -178,6 +179,8 @@ impl MerkleTree {
 
             if sibling_index < level.len() {
                 siblings.push(level[sibling_index]);
+            } else if index.is_multiple_of(2) {
+                siblings.push(level[index]);
             }
 
             index /= 2;
@@ -222,6 +225,13 @@ impl MerkleTree {
         }
 
         if proof.index >= self.leaves.len() {
+            return false;
+        }
+
+        if !constant_time_eq(
+            &proof.leaf,
+            &self.leaves.get(proof.index).copied().unwrap_or([0u8; 32]),
+        ) {
             return false;
         }
 

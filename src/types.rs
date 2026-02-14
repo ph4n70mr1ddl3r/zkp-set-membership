@@ -11,9 +11,9 @@ use serde::{Deserialize, Serialize};
 // cryptographic operations in this ZKP system.
 pub const HASH_SIZE: usize = 32;
 
-/// Verification key data for ZK proof verification.
+/// Public inputs for ZK proof verification.
 ///
-/// Contains the public inputs that were committed to in the circuit.
+/// Contains the public input values that were committed to in the circuit.
 /// These values must match between proof generation and verification.
 ///
 /// # Note on Naming

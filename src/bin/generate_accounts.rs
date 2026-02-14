@@ -17,8 +17,9 @@ struct Args {
 
 fn generate_random_ethereum_addresses(count: usize) -> Vec<String> {
     let mut addresses = Vec::with_capacity(count);
+    let mut rng = rand::thread_rng();
     for _ in 0..count {
-        let wallet = LocalWallet::new(&mut rand::thread_rng());
+        let wallet = LocalWallet::new(&mut rng);
         addresses.push(format!("0x{:x}", wallet.address()));
     }
     addresses

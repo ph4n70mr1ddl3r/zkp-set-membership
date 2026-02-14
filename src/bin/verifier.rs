@@ -97,7 +97,7 @@ fn check_and_add_nullifier(nullifier_file: &Path, nullifier: &str) -> Result<()>
     writeln!(file, "{}", normalized_nullifier).context("Failed to write nullifier to file")?;
 
     debug!(
-        "Nullifier {} recorded to: {} (concurrent access not locked)",
+        "Nullifier {} recorded to: {}. Note: Concurrent access not protected by file locking. In production, use proper synchronization.",
         normalized_nullifier,
         nullifier_file.display()
     );

@@ -91,6 +91,15 @@ fn validate_private_key(private_key: &str) -> Result<()> {
         ));
     }
 
+    let value = u128::from_str_radix(&stripped, 16)
+        .map_err(|_| anyhow::anyhow!("Private key contains invalid hex characters"))?;
+
+    if value < 1 {
+        return Err(anyhow::anyhow!(
+            "Private key must be greater than 0. Please provide a valid private key."
+        ));
+    }
+
     Ok(())
 }
 
