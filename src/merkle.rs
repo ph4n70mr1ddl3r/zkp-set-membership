@@ -91,7 +91,7 @@ impl MerkleTree {
     /// A `MerkleTree` instance with computed root hash
     ///
     /// # Errors
-    /// Returns an error if number of leaves exceeds MAX_LEAVES (4096).
+    /// Returns an error if number of leaves exceeds `MAX_LEAVES` (4096).
     ///
     /// # Note
     /// For optimal performance, the number of leaves should be a power of 2.

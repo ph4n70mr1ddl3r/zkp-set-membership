@@ -6,7 +6,7 @@
 //! # Security Guarantees
 //!
 //! - **In-circuit cryptographic verification**: All hash computations are verified
-//!   within circuit using halo2_gadgets Poseidon hash chip
+//!   within circuit using `halo2_gadgets` Poseidon hash chip
 //! - **Merkle path verification**: Proves leaf is included in the tree that computes
 //!   to the root through proper hash constraints
 //! - **Nullifier computation**: Enforces H(leaf || root) = nullifier in-circuit
@@ -64,11 +64,11 @@
 //!
 //! 2. **Merkle Path Verification**:
 //!    - For each level i from 0 to depth-1:
-//!      - If leaf_index % 2 == 0: left = current_hash, right = sibling\[i\]
-//!      - If leaf_index % 2 == 1: left = sibling\[i\], right = current_hash
-//!      - H(left || right) -> current_hash
-//!      - leaf_index /= 2
-//!    - Final constraint: current_hash == root
+//!      - If `leaf_index` % 2 == 0: left = `current_hash`, right = sibling\[i\]
+//!      - If `leaf_index` % 2 == 1: left = sibling\[i\], right = `current_hash`
+//!      - H(left || right) -> `current_hash`
+//!      - `leaf_index` /= 2
+//!    - Final constraint: `current_hash` == root
 //!
 //! # Maximum Tree Depth
 //!
@@ -77,7 +77,7 @@
 //! Starting from `SIBLING_ROW_OFFSET = 100`, the maximum row used is:
 //!   100 + (12 * 50) = 700 rows
 //!
-//! This is well within the circuit capacity of 2^CIRCUIT_K = 4096 rows.
+//! This is well within the circuit capacity of `2^CIRCUIT_K` = 4096 rows.
 
 use halo2_gadgets::poseidon::primitives::{ConstantLength, P128Pow5T3 as PoseidonSpec};
 use halo2_gadgets::poseidon::{Hash as PoseidonHash, Pow5Chip as PoseidonChip};
@@ -185,6 +185,12 @@ impl SetMembershipCircuit {
         self.leaf_index <= max_index
     }
 
+    /// Validates that the leaf index is within bounds for the given tree depth.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the leaf index is out of bounds for the tree
+    /// with the given number of siblings (tree depth).
     pub fn validate_leaf_index_err(&self) -> anyhow::Result<()> {
         let expected_depth = self.siblings.len();
         let max_index = if expected_depth == 0 {
@@ -215,31 +221,42 @@ pub struct SetMembershipCircuitBuilder {
 }
 
 impl SetMembershipCircuitBuilder {
+    #[must_use]
     pub fn leaf(mut self, leaf: pallas::Base) -> Self {
         self.leaf = Some(leaf);
         self
     }
 
+    #[must_use]
     pub fn root(mut self, root: pallas::Base) -> Self {
         self.root = Some(root);
         self
     }
 
+    #[must_use]
     pub fn nullifier(mut self, nullifier: pallas::Base) -> Self {
         self.nullifier = Some(nullifier);
         self
     }
 
+    #[must_use]
     pub fn siblings(mut self, siblings: Vec<pallas::Base>) -> Self {
         self.siblings = Some(siblings);
         self
     }
 
+    #[must_use]
     pub fn leaf_index(mut self, leaf_index: usize) -> Self {
         self.leaf_index = Some(leaf_index);
         self
     }
 
+    /// Builds a `SetMembershipCircuit` from the configured parameters.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any required field is missing or if validation
+    /// fails (leaf index out of bounds or nullifier mismatch).
     pub fn build(self) -> anyhow::Result<SetMembershipCircuit> {
         let leaf = self
             .leaf
@@ -410,10 +427,10 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
 
         for (i, &sibling) in self.siblings.iter().enumerate() {
             layouter.assign_region(
-                || format!("assign sibling {}", i),
+                || format!("assign sibling {i}"),
                 |mut region| {
                     region.assign_advice(
-                        || format!("sibling[{}]", i),
+                        || format!("sibling[{i}]"),
                         config.advice[4],
                         offset,
                         || Value::known(sibling),
@@ -422,10 +439,10 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
             )?;
 
             let left_cell = layouter.assign_region(
-                || format!("assign left {}", i),
+                || format!("assign left {i}"),
                 |mut region| {
                     region.assign_advice(
-                        || format!("left[{}]", i),
+                        || format!("left[{i}]"),
                         config.advice[5],
                         offset + 1,
                         || {
@@ -440,10 +457,10 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
             )?;
 
             let right_cell = layouter.assign_region(
-                || format!("assign right {}", i),
+                || format!("assign right {i}"),
                 |mut region| {
                     region.assign_advice(
-                        || format!("right[{}]", i),
+                        || format!("right[{i}]"),
                         config.advice[6],
                         offset + 1,
                         || {
@@ -466,11 +483,11 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
                 2,
             >::init(
                 PoseidonChipType::construct(config.poseidon_config.clone()),
-                layouter.namespace(|| format!("init merkle hash {}", i)),
+                layouter.namespace(|| format!("init merkle hash {i}")),
             )?;
 
             current_hash = poseidon_hash.hash(
-                layouter.namespace(|| format!("compute merkle hash {}", i)),
+                layouter.namespace(|| format!("compute merkle hash {i}")),
                 [left_cell, right_cell],
             )?;
 
@@ -549,6 +566,14 @@ impl SetMembershipProver {
         CACHED_KEYS.get()
     }
 
+    /// Generates a zero-knowledge proof for the given circuit and public inputs.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if proof generation fails due to:
+    /// - Invalid circuit parameters
+    /// - Synthesis errors during proof creation
+    /// - I/O errors during transcript writing
     pub fn generate_proof(
         pk: &ProvingKey<vesta::Affine>,
         params: &Params<vesta::Affine>,
@@ -571,6 +596,14 @@ impl SetMembershipProver {
         Ok(transcript.finalize())
     }
 
+    /// Verifies a zero-knowledge proof against the given public inputs.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if verification fails due to:
+    /// - Invalid proof format
+    /// - Mismatched public inputs
+    /// - Proof verification failure
     pub fn verify_proof(
         vk: &VerifyingKey<vesta::Affine>,
         params: &Params<vesta::Affine>,

@@ -48,10 +48,10 @@ fn main() -> anyhow::Result<()> {
         return Err(anyhow!("Count must be greater than 0"));
     }
     if count > 1_000_000 {
-        return Err(anyhow!("Count must be less than 1,000,000 (got {})", count));
+        return Err(anyhow!("Count must be less than 1,000,000 (got {count})"));
     }
 
-    println!("Generating {} random Ethereum addresses...", count);
+    println!("Generating {count} random Ethereum addresses...");
     let addresses = generate_random_ethereum_addresses(count);
 
     if !validate_addresses(&addresses) {
@@ -74,10 +74,10 @@ fn main() -> anyhow::Result<()> {
     let mut file = File::create(&output_file)
         .with_context(|| format!("Failed to create output file: {}", output_file.display()))?;
     for address in &addresses {
-        writeln!(file, "{}", address).context("Failed to write address to file")?;
+        writeln!(file, "{address}").context("Failed to write address to file")?;
     }
 
-    println!("Successfully generated {} addresses", count);
+    println!("Successfully generated {count} addresses");
     println!("First 5 addresses:");
     for (i, addr) in addresses.iter().take(5).enumerate() {
         println!("  {}: {}", i + 1, addr);

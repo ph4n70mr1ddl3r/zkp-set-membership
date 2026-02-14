@@ -108,32 +108,29 @@ fn main() -> Result<()> {
 
     let args = Args::parse();
 
-    let private_key = match std::env::var("ZKP_PRIVATE_KEY") {
-        Ok(key) => {
-            info!("Using private key from ZKP_PRIVATE_KEY environment variable");
-            info!("Warning: Private key from environment variable may be stored in shell history");
-            key
-        }
-        Err(_) => {
-            print!("Enter private key: ");
-            std::io::stdout()
-                .flush()
-                .context("Failed to flush stdout")?;
-            let key = read_password().context("Failed to read private key from stdin")?;
-            info!("Using private key from secure stdin");
-            key
-        }
+    let private_key = if let Ok(key) = std::env::var("ZKP_PRIVATE_KEY") {
+        info!("Using private key from ZKP_PRIVATE_KEY environment variable");
+        info!("Warning: Private key from environment variable may be stored in shell history");
+        key
+    } else {
+        print!("Enter private key: ");
+        std::io::stdout()
+            .flush()
+            .context("Failed to flush stdout")?;
+        let key = read_password().context("Failed to read private key from stdin")?;
+        info!("Using private key from secure stdin");
+        key
     };
 
-    info!("Loading accounts from: {:?}", args.accounts_file);
+    info!("Loading accounts from: {}", args.accounts_file.display());
     debug!("Starting accounts file read operation");
-    println!("Loading accounts from: {:?}", args.accounts_file);
+    println!("Loading accounts from: {}", args.accounts_file.display());
 
     let accounts_content =
         fs::read_to_string(&args.accounts_file).context("Failed to read accounts file")?;
 
     let content_size = accounts_content.len() as u64;
-    debug!("Accounts file size: {} bytes", content_size);
+    debug!("Accounts file size: {content_size} bytes");
     let max_accounts_size = get_max_accounts_file_size();
     if content_size > max_accounts_size {
         return Err(anyhow::anyhow!(
@@ -174,7 +171,7 @@ fn main() -> Result<()> {
         .parse()
         .with_context(|| "Failed to parse private key: invalid format".to_string())?;
     let prover_address = wallet.address();
-    let prover_address_str = format!("{:x}", prover_address);
+    let prover_address_str = format!("{prover_address:x}");
     info!("Prover address: 0x{prover_address_str}");
     println!("Prover address: 0x{prover_address_str}");
 
@@ -216,14 +213,12 @@ fn main() -> Result<()> {
 
     if prover_count == 0 {
         return Err(anyhow::anyhow!(
-            "Prover address '0x{}' not found in accounts file. Ensure your private key corresponds to an address in the set",
-            prover_address_str
+            "Prover address '0x{prover_address_str}' not found in accounts file. Ensure your private key corresponds to an address in the set"
         ));
     }
     if prover_count > 1 {
         return Err(anyhow::anyhow!(
-            "Duplicate prover address found {} times in accounts file",
-            prover_count
+            "Duplicate prover address found {prover_count} times in accounts file"
         ));
     }
 
@@ -316,8 +311,8 @@ fn main() -> Result<()> {
         merkle_siblings,
     };
 
-    info!("Writing proof to: {:?}", args.output);
-    println!("Writing proof to: {:?}", args.output);
+    info!("Writing proof to: {}", args.output.display());
+    println!("Writing proof to: {}", args.output.display());
 
     let parent_dir = args
         .output

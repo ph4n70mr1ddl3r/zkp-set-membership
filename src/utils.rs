@@ -122,8 +122,8 @@ pub fn bytes_to_field(bytes: &[u8; 32]) -> pallas::Base {
     let mut value = pallas::Base::zero();
     let base = pallas::Base::from(BASE_U64);
 
-    for &byte in bytes.iter() {
-        value = value * base + pallas::Base::from(byte as u64);
+    for &byte in bytes {
+        value = value * base + pallas::Base::from(u64::from(byte));
     }
 
     value

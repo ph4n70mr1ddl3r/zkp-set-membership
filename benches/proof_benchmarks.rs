@@ -15,11 +15,11 @@ fn bench_proof_generation(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("proof_generation");
 
-    for leaf_count in [4, 8, 16, 32, 64, 128, 256].iter() {
+    for leaf_count in &[4, 8, 16, 32, 64, 128, 256] {
         let leaves: Vec<[u8; 32]> = (0..*leaf_count)
             .map(|i| {
                 let mut bytes = [0u8; 32];
-                bytes[0..8].copy_from_slice(&(i as u64).to_le_bytes());
+                bytes[0..8].copy_from_slice(&((i as i64).unsigned_abs()).to_le_bytes());
                 bytes
             })
             .collect();
@@ -55,7 +55,7 @@ fn bench_proof_generation(c: &mut Criterion) {
                             &public_inputs,
                         )
                         .unwrap(),
-                    )
+                    );
                 })
             },
         );
@@ -71,7 +71,7 @@ fn bench_proof_verification(c: &mut Criterion) {
     let leaves: Vec<[u8; 32]> = (0..32)
         .map(|i| {
             let mut bytes = [0u8; 32];
-            bytes[0..8].copy_from_slice(&(i as u64).to_le_bytes());
+            bytes[0..8].copy_from_slice(&((i as i64).unsigned_abs()).to_le_bytes());
             bytes
         })
         .collect();
@@ -102,7 +102,7 @@ fn bench_proof_verification(c: &mut Criterion) {
             black_box(
                 SetMembershipProver::verify_proof(&vk, &params, &zkp_proof, &public_inputs)
                     .unwrap(),
-            )
+            );
         })
     });
 }
@@ -110,11 +110,11 @@ fn bench_proof_verification(c: &mut Criterion) {
 fn bench_merkle_tree_construction(c: &mut Criterion) {
     let mut group = c.benchmark_group("merkle_tree_construction");
 
-    for leaf_count in [4, 8, 16, 32, 64, 128, 256, 512, 1024].iter() {
+    for leaf_count in &[4, 8, 16, 32, 64, 128, 256, 512, 1024] {
         let leaves: Vec<[u8; 32]> = (0..*leaf_count)
             .map(|i| {
                 let mut bytes = [0u8; 32];
-                bytes[0..8].copy_from_slice(&(i as u64).to_le_bytes());
+                bytes[0..8].copy_from_slice(&((i as i64).unsigned_abs()).to_le_bytes());
                 bytes
             })
             .collect();
@@ -132,11 +132,11 @@ fn bench_merkle_tree_construction(c: &mut Criterion) {
 fn bench_merkle_proof_generation(c: &mut Criterion) {
     let mut group = c.benchmark_group("merkle_proof_generation");
 
-    for leaf_count in [4, 8, 16, 32, 64, 128, 256].iter() {
+    for leaf_count in &[4, 8, 16, 32, 64, 128, 256] {
         let leaves: Vec<[u8; 32]> = (0..*leaf_count)
             .map(|i| {
                 let mut bytes = [0u8; 32];
-                bytes[0..8].copy_from_slice(&(i as u64).to_le_bytes());
+                bytes[0..8].copy_from_slice(&((i as i64).unsigned_abs()).to_le_bytes());
                 bytes
             })
             .collect();
@@ -159,7 +159,7 @@ fn bench_poseidon_hash(c: &mut Criterion) {
             black_box(zkp_set_membership::utils::poseidon_hash(
                 black_box(pallas::Base::from(42)),
                 black_box(pallas::Base::from(99)),
-            ))
+            ));
         })
     });
 }

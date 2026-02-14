@@ -65,8 +65,7 @@ fn test_end_to_end_prover_verifier_workflow() {
     let verifier_stdout = String::from_utf8_lossy(&verifier_output.stdout);
     assert!(
         verifier_stdout.contains("Proof verification PASSED"),
-        "Proof verification did not pass: {}",
-        verifier_stdout
+        "Proof verification did not pass: {verifier_stdout}"
     );
 }
 
@@ -135,7 +134,7 @@ fn test_replay_attack_prevention() {
     assert!(
         !verifier_output2.status.success(),
         "Second verification should fail due to replay attack: {}",
-        String::from_utf8_lossy(&verifier_output2.stdout)
+        String::from_utf8_lossy(&verifier_output2.stderr)
     );
 
     let verifier_stderr = String::from_utf8_lossy(&verifier_output2.stderr);
@@ -285,8 +284,7 @@ fn test_duplicate_addresses() {
     let stderr = String::from_utf8_lossy(&prover_output.stderr);
     assert!(
         stderr.to_lowercase().contains("duplicate"),
-        "Error should mention duplicate: {}",
-        stderr
+        "Error should mention duplicate: {stderr}"
     );
 }
 

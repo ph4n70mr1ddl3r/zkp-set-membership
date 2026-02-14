@@ -25,7 +25,7 @@ pub const HASH_SIZE: usize = 32;
 /// The values in this struct (`leaf`, `root`, `nullifier`) must match exactly
 /// between the prover and verifier for verification to succeed.
 ///
-/// # Relationship to ZKProofOutput
+/// # Relationship to `ZKProofOutput`
 ///
 /// In `ZKProofOutput`, the `merkle_root` field contains the same value as
 /// `verification_key.root`. Both represent the Merkle tree root. The
@@ -156,14 +156,12 @@ impl ZKProofOutput {
 
         if self.merkle_root.is_empty() {
             return Err(anyhow::anyhow!(
-                "Merkle root cannot be empty. Expected a {}-byte hex string.",
-                HASH_SIZE
+                "Merkle root cannot be empty. Expected a {HASH_SIZE}-byte hex string."
             ));
         }
         if self.nullifier.is_empty() {
             return Err(anyhow::anyhow!(
-                "Nullifier cannot be empty. Expected a {}-byte hex string.",
-                HASH_SIZE
+                "Nullifier cannot be empty. Expected a {HASH_SIZE}-byte hex string."
             ));
         }
         if self.zkp_proof.is_empty() {
@@ -175,8 +173,8 @@ impl ZKProofOutput {
         let current_timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs())
-            .map_err(|e| anyhow::anyhow!("System clock unavailable: {}", e))?;
-        debug!("Current timestamp: {}", current_timestamp);
+            .map_err(|e| anyhow::anyhow!("System clock unavailable: {e}"))?;
+        debug!("Current timestamp: {current_timestamp}");
 
         let timestamp_tolerance = Self::get_timestamp_tolerance();
         if self.timestamp > current_timestamp + timestamp_tolerance {
@@ -201,8 +199,7 @@ impl ZKProofOutput {
         let leaf_hex = &self.verification_key.leaf;
         let leaf_bytes = hex::decode(leaf_hex).map_err(|e| {
             anyhow::anyhow!(
-                "Invalid leaf hex '{leaf_hex}': {e}. Expected {}-byte hex string.",
-                HASH_SIZE
+                "Invalid leaf hex '{leaf_hex}': {e}. Expected {HASH_SIZE}-byte hex string."
             )
         })?;
 

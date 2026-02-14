@@ -8,10 +8,7 @@ const NUM_ACCOUNTS: usize = 1000;
 fn generate_deterministic_accounts(
     output_file: &str,
 ) -> Result<Vec<(String, String)>, Box<dyn std::error::Error>> {
-    println!(
-        "Generating {} deterministic Ethereum accounts...",
-        NUM_ACCOUNTS
-    );
+    println!("Generating {NUM_ACCOUNTS} deterministic Ethereum accounts...");
 
     let mut accounts = Vec::new();
 
@@ -20,7 +17,7 @@ fn generate_deterministic_accounts(
 
     for i in 0..NUM_ACCOUNTS {
         // Create deterministic wallet using a seed approach
-        let seed = format!("test_seed_{:020}", i);
+        let seed = format!("test_seed_{i:020}");
         let mut hasher = Sha3_256::new();
         hasher.update(seed.as_bytes());
         let seed_hash = hasher.finalize();
@@ -35,17 +32,17 @@ fn generate_deterministic_accounts(
         let address = format!("{:x}", wallet.address());
         let private_key = hex::encode(wallet.signer().to_bytes());
 
-        writeln!(addr_file, "{}", address)?;
-        writeln!(pk_file, "{}|{}", address, private_key)?;
+        writeln!(addr_file, "{address}")?;
+        writeln!(pk_file, "{address}|{private_key}")?;
 
         accounts.push((address.clone(), private_key));
 
         if i < 5 {
-            println!("  Account {}: {}", i, address);
+            println!("  Account {i}: {address}");
         }
     }
 
-    println!("Created {} accounts", NUM_ACCOUNTS);
+    println!("Created {NUM_ACCOUNTS} accounts");
     Ok(accounts)
 }
 
@@ -60,10 +57,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("\nFirst 10 accounts:");
     for (i, (addr, _pk)) in accounts.iter().take(10).enumerate() {
-        println!("  {}: {}", i, addr);
+        println!("  {i}: {addr}");
     }
 
-    println!("\nAccounts saved to: {}", accounts_file);
+    println!("\nAccounts saved to: {accounts_file}");
     println!("Private keys saved to: test_private_keys.txt");
 
     println!("\nNext steps:");
@@ -71,8 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("2. Run test script: ./run_tests.sh");
     println!("   or manually test with:");
     println!(
-        "   ZKP_PRIVATE_KEY=<KEY> ./target/release/prover --accounts-file {} --output proof.json",
-        accounts_file
+        "   ZKP_PRIVATE_KEY=<KEY> ./target/release/prover --accounts-file {accounts_file} --output proof.json"
     );
     println!("   ./target/release/verifier --proof-file proof.json");
 
