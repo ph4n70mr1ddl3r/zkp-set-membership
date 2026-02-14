@@ -209,7 +209,7 @@ impl MerkleTree {
         let mut index = proof.index;
 
         for sibling in &proof.siblings {
-            if index % 2 == 0 {
+            if index.is_multiple_of(2) {
                 current_hash = hash_pair(&current_hash, sibling);
             } else {
                 current_hash = hash_pair(sibling, &current_hash);
