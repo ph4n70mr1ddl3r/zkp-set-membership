@@ -32,7 +32,7 @@ fn generate_deterministic_accounts(
             Err(_) => LocalWallet::new(&mut rand::thread_rng()),
         };
 
-        let address = format!("{:?}", wallet.address());
+        let address = format!("{:x}", wallet.address());
         let private_key = hex::encode(wallet.signer().to_bytes());
 
         writeln!(addr_file, "{}", address)?;

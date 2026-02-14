@@ -6,6 +6,7 @@ use log::{debug, info};
 use pasta_curves::vesta;
 use rpassword::read_password;
 use std::fs;
+use std::io::Write;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 use zkp_set_membership::{
@@ -97,7 +98,10 @@ fn main() -> Result<()> {
             key
         }
         Err(_) => {
-            eprint!("Enter private key: ");
+            print!("Enter private key: ");
+            std::io::stdout()
+                .flush()
+                .context("Failed to flush stdout")?;
             let key = read_password().context("Failed to read private key from stdin")?;
             info!("Using private key from secure stdin");
             key

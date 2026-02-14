@@ -92,9 +92,23 @@ pub struct ZKProofOutput {
 
 impl ZKProofOutput {
     // Acceptable clock drift in seconds to account for system clock skew
-    const TIMESTAMP_TOLERANCE_SECS: u64 = 30;
+    const DEFAULT_TIMESTAMP_TOLERANCE_SECS: u64 = 30;
     // Maximum proof age in seconds (24 hours) to prevent use of expired proofs
-    const TIMESTAMP_MAX_AGE_SECS: u64 = 86400;
+    const DEFAULT_TIMESTAMP_MAX_AGE_SECS: u64 = 86400;
+
+    fn get_timestamp_tolerance() -> u64 {
+        std::env::var("ZKP_TIMESTAMP_TOLERANCE_SECS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(Self::DEFAULT_TIMESTAMP_TOLERANCE_SECS)
+    }
+
+    fn get_timestamp_max_age() -> u64 {
+        std::env::var("ZKP_TIMESTAMP_MAX_AGE_SECS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(Self::DEFAULT_TIMESTAMP_MAX_AGE_SECS)
+    }
 
     /// Validates the proof output structure and cryptographic consistency.
     ///
@@ -144,21 +158,23 @@ impl ZKProofOutput {
             .map_err(|e| anyhow::anyhow!("System clock unavailable: {}", e))?;
         debug!("Current timestamp: {}", current_timestamp);
 
-        if self.timestamp > current_timestamp + Self::TIMESTAMP_TOLERANCE_SECS {
+        let timestamp_tolerance = Self::get_timestamp_tolerance();
+        if self.timestamp > current_timestamp + timestamp_tolerance {
             return Err(anyhow::anyhow!(
                 "Timestamp is too far in the future: {} (current: {}, tolerance: {}s). Please check system clock and proof timestamp.",
                 self.timestamp,
                 current_timestamp,
-                Self::TIMESTAMP_TOLERANCE_SECS
+                timestamp_tolerance
             ));
         }
 
-        if current_timestamp > self.timestamp + Self::TIMESTAMP_MAX_AGE_SECS {
+        let timestamp_max_age = Self::get_timestamp_max_age();
+        if current_timestamp > self.timestamp + timestamp_max_age {
             return Err(anyhow::anyhow!(
                 "Timestamp is too old: {} (current: {}, max age: {}s). This proof may be expired. Please generate a fresh proof.",
                 self.timestamp,
                 current_timestamp,
-                Self::TIMESTAMP_MAX_AGE_SECS
+                timestamp_max_age
             ));
         }
 

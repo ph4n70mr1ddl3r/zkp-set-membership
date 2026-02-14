@@ -153,7 +153,7 @@ impl MerkleTree {
         let mut index = leaf_index;
 
         while level.len() > 1 {
-            let is_right = !index.is_multiple_of(2);
+            let is_right = index % 2 == 1;
             let sibling_index = if is_right { index - 1 } else { index + 1 };
 
             if sibling_index < level.len() {
@@ -209,7 +209,7 @@ impl MerkleTree {
         let mut index = proof.index;
 
         for sibling in &proof.siblings {
-            if index.is_multiple_of(2) {
+            if index % 2 == 0 {
                 current_hash = hash_pair(&current_hash, sibling);
             } else {
                 current_hash = hash_pair(sibling, &current_hash);
