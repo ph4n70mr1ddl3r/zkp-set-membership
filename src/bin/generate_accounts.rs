@@ -4,6 +4,7 @@ use ethers::signers::{LocalWallet, Signer};
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
+use zkp_set_membership::ethereum::validate_addresses_batch;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -26,12 +27,7 @@ fn generate_random_ethereum_addresses(count: usize) -> Vec<String> {
 }
 
 fn validate_addresses(addresses: &[String]) -> bool {
-    addresses.iter().all(|addr| {
-        addr.len() == 42
-            && addr.starts_with("0x")
-            && addr[2..].chars().all(|c| c.is_ascii_hexdigit())
-            && !addr[2..].chars().all(|c| c == '0')
-    })
+    validate_addresses_batch(addresses)
 }
 
 fn check_duplicates(addresses: &[String]) -> bool {

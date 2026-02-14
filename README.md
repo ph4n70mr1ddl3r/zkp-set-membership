@@ -115,8 +115,10 @@ The proof is saved as a JSON file with the following structure:
   "merkle_root": "a1b2c3d4...",
   "nullifier": "e5f6g7h8...",
   "zkp_proof": [bytes],
-  "verification_key": {
-    "vk": [bytes]
+  "public_inputs": {
+    "leaf": "a1b2c3d4...",
+    "root": "a1b2c3d4...",
+    "nullifier": "e5f6g7h8..."
   },
   "leaf_index": 2,
   "timestamp": 1706140800
@@ -128,7 +130,7 @@ The proof is saved as a JSON file with the following structure:
 - **merkle_root**: Root hash of the Merkle tree containing all addresses
 - **nullifier**: Deterministic identifier derived from private key and Merkle root (prevents proof reuse)
 - **zkp_proof**: Serialized ZK-SNARK proof bytes
-- **verification_key**: Verification key needed to verify the proof
+- **public_inputs**: Public inputs containing leaf, root, and nullifier for verification
 - **leaf_index**: Index of the prover's address in the Merkle tree
 - **timestamp**: Unix timestamp when proof was generated
 

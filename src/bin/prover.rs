@@ -11,16 +11,20 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 use zkp_set_membership::{
     circuit::{SetMembershipCircuit, SetMembershipProver},
+    ethereum::{
+        address_to_bytes_normalized, normalize_address, normalize_addresses_batch,
+        validate_private_key,
+    },
     merkle::MerkleTree,
-    types::{compute_nullifier, compute_nullifier_from_fields, VerificationKey, ZKProofOutput},
-    utils::{bytes_to_field, validate_and_strip_hex},
+    types::{compute_nullifier, compute_nullifier_from_fields, PublicInputs, ZKProofOutput},
+    utils::bytes_to_field,
     CIRCUIT_K,
 };
 
-/// Default maximum allowed size for the accounts file (10MB)
+/// Default maximum allowed size for the accounts file (1MB)
 /// Prevents memory exhaustion from excessively large input files
 /// Can be overridden via `ZKP_MAX_ACCOUNTS_FILE_SIZE` environment variable
-const DEFAULT_MAX_ACCOUNTS_FILE_SIZE: u64 = 10 * 1024 * 1024;
+const DEFAULT_MAX_ACCOUNTS_FILE_SIZE: u64 = 1024 * 1024;
 
 fn get_max_accounts_file_size() -> u64 {
     std::env::var("ZKP_MAX_ACCOUNTS_FILE_SIZE")
@@ -28,14 +32,6 @@ fn get_max_accounts_file_size() -> u64 {
         .and_then(|s| s.parse().ok())
         .unwrap_or(DEFAULT_MAX_ACCOUNTS_FILE_SIZE)
 }
-
-/// Expected length of an Ethereum address in hex characters (excluding 0x prefix)
-/// Ethereum addresses are 20 bytes = 40 hex characters
-const ADDRESS_HEX_LENGTH: usize = 40;
-
-/// Expected length of a private key in hex characters (excluding 0x prefix)
-/// Ethereum private keys are 32 bytes = 64 hex characters
-const PRIVATE_KEY_HEX_LENGTH: usize = 64;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -45,62 +41,6 @@ struct Args {
 
     #[arg(short, long, default_value = "proof.json")]
     output: PathBuf,
-}
-
-#[inline]
-fn address_to_bytes_normalized(normalized_address: &str) -> Result<[u8; 32]> {
-    let bytes = hex::decode(normalized_address).context("Failed to decode address from hex")?;
-
-    if bytes.len() != 20 {
-        return Err(anyhow::anyhow!("Address bytes length mismatch"));
-    }
-
-    let mut full_bytes = [0u8; 32];
-    full_bytes[12..32].copy_from_slice(&bytes);
-    Ok(full_bytes)
-}
-
-/// Validates and normalizes a single Ethereum address.
-///
-/// Returns a lowercase hex string without the 0x prefix.
-#[inline]
-fn normalize_address(address: &str) -> Result<String> {
-    validate_and_strip_hex(address, ADDRESS_HEX_LENGTH).map(|s| s.to_lowercase())
-}
-
-/// Validates and normalizes a batch of addresses in one pass.
-/// More efficient than processing individually.
-fn normalize_addresses_batch(addresses: &[String]) -> Result<Vec<String>> {
-    addresses
-        .iter()
-        .enumerate()
-        .map(|(i, addr)| {
-            normalize_address(addr).with_context(|| {
-                format!("Failed to validate address at line {}: '{}'", i + 1, addr)
-            })
-        })
-        .collect()
-}
-
-fn validate_private_key(private_key: &str) -> Result<()> {
-    let stripped = validate_and_strip_hex(private_key, PRIVATE_KEY_HEX_LENGTH)?;
-
-    if stripped.chars().all(|c| c == '0') {
-        return Err(anyhow::anyhow!(
-            "Private key cannot be all zeros. Please provide a valid private key."
-        ));
-    }
-
-    let value = u128::from_str_radix(&stripped, 16)
-        .map_err(|_| anyhow::anyhow!("Private key contains invalid hex characters"))?;
-
-    if value < 1 {
-        return Err(anyhow::anyhow!(
-            "Private key must be greater than 0. Please provide a valid private key."
-        ));
-    }
-
-    Ok(())
 }
 
 fn main() -> Result<()> {
@@ -286,7 +226,7 @@ fn main() -> Result<()> {
     );
     println!("ZK proof generated, size: {} bytes", zkp_proof.len());
 
-    let verification_key = VerificationKey {
+    let public_inputs = PublicInputs {
         leaf: hex::encode(leaf_hash),
         root: hex::encode(root_hash),
         nullifier: hex::encode(nullifier),
@@ -305,7 +245,7 @@ fn main() -> Result<()> {
         merkle_root: hex::encode(merkle_tree.root),
         nullifier: hex::encode(nullifier),
         zkp_proof,
-        verification_key,
+        public_inputs,
         leaf_index,
         timestamp,
         merkle_siblings,

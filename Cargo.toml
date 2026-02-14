@@ -34,6 +34,7 @@ halo2_gadgets = "0.3"
 log = "0.4"
 env_logger = "0.11"
 rpassword = "7.3"
+fs2 = "0.4"
 
 [dev-dependencies]
 halo2_proofs = { version = "0.3", features = ["dev-graph", "sanity-checks"] }

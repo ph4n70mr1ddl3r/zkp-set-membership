@@ -13,16 +13,16 @@ use zkp_set_membership::{
     CIRCUIT_K,
 };
 
-/// Default maximum allowed size for the proof JSON file (1MB)
+/// Default maximum allowed size for the proof JSON file (100KB)
 /// Prevents memory exhaustion from excessively large proof files
 /// Can be overridden via `ZKP_MAX_PROOF_FILE_SIZE` environment variable
-const DEFAULT_MAX_PROOF_FILE_SIZE: u64 = 1024 * 1024;
+const DEFAULT_MAX_PROOF_FILE_SIZE: u64 = 100 * 1024;
 
-/// Default maximum allowed size for the ZK proof bytes (512KB)
-/// ZK proofs generated with k=11 should be well below this limit
+/// Default maximum allowed size for the ZK proof bytes (100KB)
+/// ZK proofs generated with k=12 should be well below this limit
 /// Exceeding this indicates a potentially malformed or incompatible proof
 /// Can be overridden via `ZKP_MAX_ZK_PROOF_SIZE` environment variable
-const DEFAULT_MAX_ZK_PROOF_SIZE: usize = 512 * 1024;
+const DEFAULT_MAX_ZK_PROOF_SIZE: usize = 100 * 1024;
 
 fn get_max_proof_file_size() -> u64 {
     std::env::var("ZKP_MAX_PROOF_FILE_SIZE")
@@ -55,16 +55,33 @@ fn bytes_to_fixed_array(bytes: &[u8], name: &str) -> Result<[u8; HASH_SIZE]> {
 fn check_and_add_nullifier(nullifier_file: &Path, nullifier: &str) -> Result<()> {
     let normalized_nullifier = nullifier.trim().to_lowercase();
 
-    let existing_content = if nullifier_file.exists() {
-        fs::read_to_string(nullifier_file).with_context(|| {
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(nullifier_file)
+        .with_context(|| {
             format!(
-                "Failed to read nullifier file: {}. Check file permissions and ensure the file is not corrupted.",
+                "Failed to open nullifier file: {}. Check file permissions and disk space.",
                 nullifier_file.display()
             )
-        })?
-    } else {
-        String::new()
-    };
+        })?;
+
+    if let Err(e) = fs2::FileExt::try_lock_exclusive(&file) {
+        return Err(anyhow::anyhow!(
+            "Could not acquire lock on nullifier file: {}. Another verifier process is running. Please wait and retry. Error: {}",
+            nullifier_file.display(),
+            e
+        ));
+    }
+
+    let existing_content = fs::read_to_string(nullifier_file).with_context(|| {
+        format!(
+            "Failed to read nullifier file: {}. Check file permissions and ensure the file is not corrupted.",
+            nullifier_file.display()
+        )
+    })?;
 
     let existing_nullifiers: std::collections::HashSet<String> = existing_content
         .lines()
@@ -72,6 +89,7 @@ fn check_and_add_nullifier(nullifier_file: &Path, nullifier: &str) -> Result<()>
         .collect();
 
     if existing_nullifiers.contains(&normalized_nullifier) {
+        fs2::FileExt::unlock(&file)?;
         return Err(anyhow::anyhow!(
             "Nullifier {} already exists in file {}. This indicates a replay attack attempt or the proof has been used before.",
             normalized_nullifier,
@@ -80,12 +98,11 @@ fn check_and_add_nullifier(nullifier_file: &Path, nullifier: &str) -> Result<()>
     }
 
     let mut file = OpenOptions::new()
-        .create(true)
         .append(true)
         .open(nullifier_file)
         .with_context(|| {
             format!(
-                "Failed to open nullifier file: {}. Check file permissions and disk space.",
+                "Failed to open nullifier file for writing: {}. Check file permissions and disk space.",
                 nullifier_file.display()
             )
         })?;
@@ -96,8 +113,10 @@ fn check_and_add_nullifier(nullifier_file: &Path, nullifier: &str) -> Result<()>
 
     writeln!(file, "{normalized_nullifier}").context("Failed to write nullifier to file")?;
 
+    fs2::FileExt::unlock(&file)?;
+
     debug!(
-        "Nullifier {} recorded to: {}. Note: Concurrent access not protected by file locking. In production, use proper synchronization.",
+        "Nullifier {} recorded to: {}. File locking was used to prevent race conditions.",
         normalized_nullifier,
         nullifier_file.display()
     );
@@ -179,9 +198,9 @@ fn main() -> Result<()> {
     let (vk, _) = SetMembershipProver::generate_and_cache_keys(&params)
         .context("Failed to generate verification keys")?;
 
-    let leaf_hex = &proof.verification_key.leaf;
+    let leaf_hex = &proof.public_inputs.leaf;
     let root_hex = &proof.merkle_root;
-    let nullifier_hex = &proof.nullifier;
+    let nullifier_hex = &proof.public_inputs.nullifier;
 
     let leaf_bytes = hex::decode(leaf_hex).with_context(|| {
         format!("Failed to decode leaf hex '{leaf_hex}': expected 32-byte hex string")
