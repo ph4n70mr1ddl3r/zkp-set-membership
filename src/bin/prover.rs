@@ -83,7 +83,14 @@ fn normalize_addresses_batch(addresses: &[String]) -> Result<Vec<String>> {
 }
 
 fn validate_private_key(private_key: &str) -> Result<()> {
-    validate_and_strip_hex(private_key, PRIVATE_KEY_HEX_LENGTH)?;
+    let stripped = validate_and_strip_hex(private_key, PRIVATE_KEY_HEX_LENGTH)?;
+
+    if stripped.chars().all(|c| c == '0') {
+        return Err(anyhow::anyhow!(
+            "Private key cannot be all zeros. Please provide a valid private key."
+        ));
+    }
+
     Ok(())
 }
 
@@ -167,9 +174,10 @@ fn main() -> Result<()> {
 
     if normalized_addresses.len() > (1 << CIRCUIT_K) {
         return Err(anyhow::anyhow!(
-            "Number of addresses {} exceeds circuit capacity {} (1 << CIRCUIT_K)",
+            "Number of addresses {} exceeds circuit capacity {} (1 << CIRCUIT_K={}). Please reduce the number of addresses or increase CIRCUIT_K",
             normalized_addresses.len(),
-            1 << CIRCUIT_K
+            1 << CIRCUIT_K,
+            CIRCUIT_K
         ));
     }
 

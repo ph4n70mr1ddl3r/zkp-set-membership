@@ -8,6 +8,15 @@ use crate::types::HASH_SIZE;
 use crate::utils::{bytes_to_field, field_to_bytes, poseidon_hash};
 use std::fmt;
 
+#[inline]
+fn constant_time_eq(a: &[u8; HASH_SIZE], b: &[u8; HASH_SIZE]) -> bool {
+    let mut result = 0u8;
+    for i in 0..HASH_SIZE {
+        result |= a[i] ^ b[i];
+    }
+    result == 0
+}
+
 const MAX_LEAVES: usize = 1 << 12;
 
 const _: () = {
@@ -99,13 +108,18 @@ impl MerkleTree {
     #[must_use = "The Merkle tree should be used for further operations"]
     pub fn new(leaves: Vec<[u8; HASH_SIZE]>) -> Result<Self, anyhow::Error> {
         if leaves.is_empty() {
-            return Err(anyhow::anyhow!("Empty Merkle trees are not allowed"));
+            return Err(anyhow::anyhow!(
+                "Empty Merkle trees are not allowed. Please provide at least one leaf."
+            ));
         }
         if leaves.len() > MAX_LEAVES {
             return Err(anyhow::anyhow!(
-                "Number of leaves {} exceeds maximum allowed {}",
+                "Number of leaves {} exceeds maximum allowed {}. The circuit capacity is {} leaves (2^{}), which is the limit for CIRCUIT_K={}",
                 leaves.len(),
-                MAX_LEAVES
+                MAX_LEAVES,
+                MAX_LEAVES,
+                crate::CIRCUIT_K,
+                crate::CIRCUIT_K
             ));
         }
         let root = Self::compute_root(&leaves);
@@ -203,7 +217,7 @@ impl MerkleTree {
     /// ```
     #[must_use]
     pub fn verify_proof(&self, proof: &MerkleProof) -> bool {
-        if proof.root != self.root {
+        if !constant_time_eq(&proof.root, &self.root) {
             return false;
         }
 
@@ -223,7 +237,7 @@ impl MerkleTree {
             index /= 2;
         }
 
-        current_hash == self.root
+        constant_time_eq(&current_hash, &self.root)
     }
 }
 

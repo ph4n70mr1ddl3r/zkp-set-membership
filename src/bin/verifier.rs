@@ -58,7 +58,7 @@ fn check_and_add_nullifier(nullifier_file: &Path, nullifier: &str) -> Result<()>
     let existing_content = if nullifier_file.exists() {
         fs::read_to_string(nullifier_file).with_context(|| {
             format!(
-                "Failed to read nullifier file: {}",
+                "Failed to read nullifier file: {}. Check file permissions and ensure the file is not corrupted.",
                 nullifier_file.display()
             )
         })?
@@ -72,7 +72,11 @@ fn check_and_add_nullifier(nullifier_file: &Path, nullifier: &str) -> Result<()>
         .collect();
 
     if existing_nullifiers.contains(&normalized_nullifier) {
-        return Err(anyhow::anyhow!("Nullifier already exists in file"));
+        return Err(anyhow::anyhow!(
+            "Nullifier {} already exists in file {}. This indicates a replay attack attempt or the proof has been used before.",
+            normalized_nullifier,
+            nullifier_file.display()
+        ));
     }
 
     let mut file = OpenOptions::new()
@@ -81,19 +85,20 @@ fn check_and_add_nullifier(nullifier_file: &Path, nullifier: &str) -> Result<()>
         .open(nullifier_file)
         .with_context(|| {
             format!(
-                "Failed to open nullifier file: {}",
+                "Failed to open nullifier file: {}. Check file permissions and disk space.",
                 nullifier_file.display()
             )
         })?;
 
     if !existing_nullifiers.is_empty() {
-        writeln!(file).context("Failed to write newline")?;
+        writeln!(file).context("Failed to write newline to nullifier file")?;
     }
 
-    writeln!(file, "{}", normalized_nullifier).context("Failed to write nullifier")?;
+    writeln!(file, "{}", normalized_nullifier).context("Failed to write nullifier to file")?;
 
     debug!(
-        "Nullifier recorded to: {} (concurrent access not locked)",
+        "Nullifier {} recorded to: {} (concurrent access not locked)",
+        normalized_nullifier,
         nullifier_file.display()
     );
     Ok(())

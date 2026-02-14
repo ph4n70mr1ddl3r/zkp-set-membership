@@ -29,6 +29,7 @@ fn validate_addresses(addresses: &[String]) -> bool {
         addr.len() == 42
             && addr.starts_with("0x")
             && addr[2..].chars().all(|c| c.is_ascii_hexdigit())
+            && !addr[2..].chars().all(|c| c == '0')
     })
 }
 
@@ -116,6 +117,12 @@ mod tests {
     #[test]
     fn test_validate_addresses_invalid_hex() {
         let addresses = vec!["0x123456789012345678901234567890123456789z".to_string()];
+        assert!(!validate_addresses(&addresses));
+    }
+
+    #[test]
+    fn test_validate_addresses_all_zero() {
+        let addresses = vec!["0x0000000000000000000000000000000000000000".to_string()];
         assert!(!validate_addresses(&addresses));
     }
 

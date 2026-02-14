@@ -285,6 +285,10 @@ impl ZKProofOutput {
 /// let root = [2u8; 32];
 /// let nullifier = compute_nullifier(&leaf, &root).unwrap();
 /// assert_eq!(nullifier.len(), 32);
+///
+/// // Same inputs produce same nullifier (deterministic)
+/// let nullifier2 = compute_nullifier(&leaf, &root).unwrap();
+/// assert_eq!(nullifier, nullifier2);
 /// ```
 pub fn compute_nullifier(leaf_bytes: &[u8], merkle_root: &[u8]) -> Result<[u8; HASH_SIZE]> {
     let leaf_arr: [u8; HASH_SIZE] = leaf_bytes.try_into().map_err(|_| {

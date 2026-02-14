@@ -194,8 +194,9 @@ impl SetMembershipCircuit {
         };
         if self.leaf_index > max_index {
             anyhow::bail!(
-                "leaf_index {} is out of bounds for tree with {} siblings (max index: {})",
+                "leaf_index {} is out of bounds for tree with {} siblings. With {} siblings, the maximum valid leaf index is {}. Either reduce the leaf_index or ensure the tree depth is correct.",
                 self.leaf_index,
+                self.siblings.len(),
                 self.siblings.len(),
                 max_index
             );

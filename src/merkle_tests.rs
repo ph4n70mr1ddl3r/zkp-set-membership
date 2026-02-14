@@ -166,4 +166,18 @@ mod tests {
 
         assert_eq!(tree1.root, tree2.root);
     }
+
+    #[test]
+    fn test_verify_proof_resists_timing_attacks() {
+        let leaves = vec![[1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32]];
+        let tree = MerkleTree::new(leaves).unwrap();
+        let proof = tree.generate_proof(0).unwrap();
+
+        assert!(tree.verify_proof(&proof));
+
+        let mut wrong_proof = proof.clone();
+        wrong_proof.root[0] = wrong_proof.root[0].wrapping_add(1);
+
+        assert!(!tree.verify_proof(&wrong_proof));
+    }
 }
