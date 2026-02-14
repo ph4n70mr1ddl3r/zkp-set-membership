@@ -8,7 +8,14 @@ use crate::types::HASH_SIZE;
 use crate::utils::{bytes_to_field, field_to_bytes, poseidon_hash};
 use std::fmt;
 
-const MAX_LEAVES: usize = 4096;
+const MAX_LEAVES: usize = 1 << 12;
+
+const _: () = {
+    assert!(
+        MAX_LEAVES == 1 << crate::CIRCUIT_K,
+        "MAX_LEAVES must match circuit capacity (1 << CIRCUIT_K)"
+    );
+};
 
 /// A Merkle proof for leaf inclusion.
 ///
@@ -55,13 +62,11 @@ fn hash_pair(left: &[u8; HASH_SIZE], right: &[u8; HASH_SIZE]) -> [u8; HASH_SIZE]
 #[inline]
 fn compute_next_level(level: &[[u8; HASH_SIZE]]) -> Vec<[u8; HASH_SIZE]> {
     let mut result = Vec::with_capacity(level.len().div_ceil(2));
-    for chunk in level.chunks(2) {
-        let hash = if chunk.len() == 2 {
-            hash_pair(&chunk[0], &chunk[1])
-        } else {
-            chunk[0]
-        };
-        result.push(hash);
+    for chunk in level.chunks_exact(2) {
+        result.push(hash_pair(&chunk[0], &chunk[1]));
+    }
+    if let Some(remaining) = level.chunks_exact(2).remainder().first() {
+        result.push(*remaining);
     }
     result
 }
@@ -108,6 +113,7 @@ impl MerkleTree {
     }
 
     #[inline]
+    #[must_use]
     fn compute_root(leaves: &[[u8; HASH_SIZE]]) -> [u8; HASH_SIZE] {
         let mut level = leaves.to_vec();
 

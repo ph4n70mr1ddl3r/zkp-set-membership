@@ -102,10 +102,12 @@ type PoseidonChipType = PoseidonChip<pallas::Base, 3, 2>;
 const INITIAL_ROW_OFFSET: usize = 0;
 
 // Row offset for nullifier assignment (after nullifier hash computation)
+// The nullifier value is assigned at row 1 to separate it from leaf/root inputs at row 0
 const NULLIFIER_ROW_OFFSET: usize = 1;
 
 // Starting row for Merkle path verification (after nullifier computation at rows 0-1)
 // Rows 2-99 provide buffer/spacing between nullifier and Merkle path regions
+// This spacing ensures no constraint overlap and provides flexibility for layouter optimization
 const SIBLING_ROW_OFFSET: usize = 100;
 
 // Rows per level in Merkle path (sibling, left, right, hash computation)
@@ -114,6 +116,9 @@ const SIBLING_ROW_OFFSET: usize = 100;
 // - Row 0: sibling assignment (advice[4])
 // - Row 1: left and right assignment (advice[5] and advice[6])
 // - Rows 2-49: Poseidon hash computation with 3 full rounds and 2 partial rounds
+//
+// The value 50 provides a safe margin; actual usage is typically ~15-20 rows per level
+// This ensures layouter has flexibility to optimize assignments across rows
 const ROW_INCREMENT: usize = 50;
 
 const MAX_TREE_DEPTH: usize = 12;
@@ -157,6 +162,19 @@ impl SetMembershipCircuit {
         self.nullifier == expected_nullifier
     }
 
+    pub fn validate_consistency_err(&self) -> anyhow::Result<()> {
+        use crate::utils::poseidon_hash;
+        let expected_nullifier = poseidon_hash(self.leaf, self.root);
+        if self.nullifier != expected_nullifier {
+            anyhow::bail!(
+                "Nullifier mismatch: expected {:?}, got {:?}",
+                expected_nullifier,
+                self.nullifier
+            );
+        }
+        Ok(())
+    }
+
     #[must_use]
     pub fn validate_leaf_index(&self) -> bool {
         let expected_depth = self.siblings.len();
@@ -165,6 +183,24 @@ impl SetMembershipCircuit {
         }
         let max_index = (1 << expected_depth) - 1;
         self.leaf_index <= max_index
+    }
+
+    pub fn validate_leaf_index_err(&self) -> anyhow::Result<()> {
+        let expected_depth = self.siblings.len();
+        let max_index = if expected_depth == 0 {
+            0
+        } else {
+            (1 << expected_depth) - 1
+        };
+        if self.leaf_index > max_index {
+            anyhow::bail!(
+                "leaf_index {} is out of bounds for tree with {} siblings (max index: {})",
+                self.leaf_index,
+                self.siblings.len(),
+                max_index
+            );
+        }
+        Ok(())
     }
 }
 
@@ -228,25 +264,8 @@ impl SetMembershipCircuitBuilder {
             leaf_index,
         };
 
-        if !circuit.validate_leaf_index() {
-            let max_index = if circuit.siblings.is_empty() {
-                0
-            } else {
-                (1 << circuit.siblings.len()) - 1
-            };
-            return Err(anyhow::anyhow!(
-                "leaf_index {} is out of bounds for tree with {} siblings (max index: {})",
-                circuit.leaf_index,
-                circuit.siblings.len(),
-                max_index
-            ));
-        }
-
-        if !circuit.validate_consistency() {
-            return Err(anyhow::anyhow!(
-                "Nullifier does not match H(leaf || root). Ensure nullifier is computed as poseidon_hash(leaf, root)"
-            ));
-        }
+        circuit.validate_leaf_index_err()?;
+        circuit.validate_consistency_err()?;
 
         Ok(circuit)
     }

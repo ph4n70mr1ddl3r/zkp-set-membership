@@ -95,6 +95,7 @@ fn main() -> Result<()> {
     let private_key = match std::env::var("ZKP_PRIVATE_KEY") {
         Ok(key) => {
             info!("Using private key from ZKP_PRIVATE_KEY environment variable");
+            info!("Warning: Private key from environment variable may be stored in shell history");
             key
         }
         Err(_) => {

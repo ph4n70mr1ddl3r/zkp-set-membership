@@ -3,7 +3,7 @@ use clap::Parser;
 use halo2_proofs::poly::commitment::Params;
 use log::{debug, error, info};
 use pasta_curves::vesta;
-use std::fs;
+use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::Path;
 use zkp_set_membership::{
@@ -75,7 +75,7 @@ fn check_and_add_nullifier(nullifier_file: &Path, nullifier: &str) -> Result<()>
         return Err(anyhow::anyhow!("Nullifier already exists in file"));
     }
 
-    let mut file = fs::OpenOptions::new()
+    let mut file = OpenOptions::new()
         .create(true)
         .append(true)
         .open(nullifier_file)
@@ -91,6 +91,11 @@ fn check_and_add_nullifier(nullifier_file: &Path, nullifier: &str) -> Result<()>
     }
 
     writeln!(file, "{}", normalized_nullifier).context("Failed to write nullifier")?;
+
+    debug!(
+        "Nullifier recorded to: {} (concurrent access not locked)",
+        nullifier_file.display()
+    );
     Ok(())
 }
 

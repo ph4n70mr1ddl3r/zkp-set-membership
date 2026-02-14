@@ -99,14 +99,34 @@ impl ZKProofOutput {
     fn get_timestamp_tolerance() -> u64 {
         std::env::var("ZKP_TIMESTAMP_TOLERANCE_SECS")
             .ok()
-            .and_then(|s| s.parse().ok())
+            .and_then(|s| {
+                let parsed = s.parse::<u64>();
+                if parsed.is_err() {
+                    log::warn!(
+                        "Invalid ZKP_TIMESTAMP_TOLERANCE_SECS value '{}', using default {}",
+                        s,
+                        Self::DEFAULT_TIMESTAMP_TOLERANCE_SECS
+                    );
+                }
+                parsed.ok()
+            })
             .unwrap_or(Self::DEFAULT_TIMESTAMP_TOLERANCE_SECS)
     }
 
     fn get_timestamp_max_age() -> u64 {
         std::env::var("ZKP_TIMESTAMP_MAX_AGE_SECS")
             .ok()
-            .and_then(|s| s.parse().ok())
+            .and_then(|s| {
+                let parsed = s.parse::<u64>();
+                if parsed.is_err() {
+                    log::warn!(
+                        "Invalid ZKP_TIMESTAMP_MAX_AGE_SECS value '{}', using default {}",
+                        s,
+                        Self::DEFAULT_TIMESTAMP_MAX_AGE_SECS
+                    );
+                }
+                parsed.ok()
+            })
             .unwrap_or(Self::DEFAULT_TIMESTAMP_MAX_AGE_SECS)
     }
 
