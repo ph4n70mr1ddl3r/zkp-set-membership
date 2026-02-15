@@ -320,6 +320,7 @@ fn test_concurrent_prover_calls() {
     let prover_path_clone = prover_path.clone();
     let accounts_file_clone = accounts_file.clone();
     let proof_file1_clone = proof_file1.clone();
+    let proof_file2_clone = proof_file2.clone();
 
     let handle1 = thread::spawn(move || {
         std::process::Command::new(&prover_path)
@@ -331,8 +332,6 @@ fn test_concurrent_prover_calls() {
             .output()
             .expect("Failed to execute prover")
     });
-
-    let proof_file2_clone = proof_file2.clone();
 
     let handle2 = thread::spawn(move || {
         std::process::Command::new(&prover_path_clone)

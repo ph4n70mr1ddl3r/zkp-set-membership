@@ -6,6 +6,8 @@ use std::io::Write;
 use std::path::PathBuf;
 use zkp_set_membership::ethereum::validate_addresses_batch;
 
+const MAX_ACCOUNTS: usize = 1_000_000;
+
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
@@ -30,6 +32,15 @@ fn validate_addresses(addresses: &[String]) -> bool {
     validate_addresses_batch(addresses)
 }
 
+/// Checks if all addresses in the slice are unique.
+///
+/// # Arguments
+///
+/// * `addresses` - Slice of Ethereum address strings to check
+///
+/// # Returns
+///
+/// `true` if all addresses are unique, `false` if duplicates are found
 fn check_duplicates(addresses: &[String]) -> bool {
     let unique_count: std::collections::HashSet<_> = addresses.iter().collect();
     unique_count.len() == addresses.len()
@@ -43,9 +54,9 @@ fn main() -> anyhow::Result<()> {
     if count == 0 {
         return Err(anyhow!("Count must be greater than 0, got {count}"));
     }
-    if count > 1_000_000 {
+    if count > MAX_ACCOUNTS {
         return Err(anyhow!(
-            "Count must be less than 1,000,000 (got {count}) to prevent excessive resource usage"
+            "Count must be less than {MAX_ACCOUNTS} (got {count}) to prevent excessive resource usage"
         ));
     }
 
