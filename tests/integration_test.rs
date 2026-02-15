@@ -140,8 +140,7 @@ fn test_replay_attack_prevention() {
     let verifier_stderr = String::from_utf8_lossy(&verifier_output2.stderr);
     assert!(
         verifier_stderr.contains("replay") || verifier_stderr.contains("nullifier"),
-        "Error should mention replay or nullifier: {}",
-        verifier_stderr
+        "Error should mention replay or nullifier: {verifier_stderr}"
     );
 }
 

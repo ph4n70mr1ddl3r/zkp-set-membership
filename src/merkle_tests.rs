@@ -55,7 +55,7 @@ mod tests {
 
         for i in 0..num_leaves {
             let mut leaf = [0u8; 32];
-            leaf[0..4].copy_from_slice(&(i as u32).to_be_bytes());
+            leaf[0..4].copy_from_slice(&(u32::try_from(i).unwrap()).to_be_bytes());
             leaves.push(leaf);
         }
 
@@ -198,7 +198,7 @@ mod tests {
 
         for i in 0..=max_leaves {
             let mut leaf = [0u8; 32];
-            leaf[0..4].copy_from_slice(&(i as u32).to_be_bytes());
+            leaf[0..4].copy_from_slice(&(u32::try_from(i).unwrap()).to_be_bytes());
             leaves.push(leaf);
         }
 
@@ -215,7 +215,7 @@ mod tests {
 
         for i in 0..max_leaves {
             let mut leaf = [0u8; 32];
-            leaf[0..4].copy_from_slice(&(i as u32).to_be_bytes());
+            leaf[0..4].copy_from_slice(&(u32::try_from(i).unwrap()).to_be_bytes());
             leaves.push(leaf);
         }
 

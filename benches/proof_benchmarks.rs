@@ -19,7 +19,7 @@ fn bench_proof_generation(c: &mut Criterion) {
         let leaves: Vec<[u8; 32]> = (0..*leaf_count)
             .map(|i| {
                 let mut bytes = [0u8; 32];
-                bytes[0..8].copy_from_slice(&((i as i64).unsigned_abs()).to_le_bytes());
+                bytes[0..8].copy_from_slice(&(i64::from(i).unsigned_abs()).to_le_bytes());
                 bytes
             })
             .collect();
@@ -56,7 +56,7 @@ fn bench_proof_generation(c: &mut Criterion) {
                         )
                         .unwrap(),
                     );
-                })
+                });
             },
         );
     }
@@ -71,7 +71,7 @@ fn bench_proof_verification(c: &mut Criterion) {
     let leaves: Vec<[u8; 32]> = (0..32)
         .map(|i| {
             let mut bytes = [0u8; 32];
-            bytes[0..8].copy_from_slice(&((i as i64).unsigned_abs()).to_le_bytes());
+            bytes[0..8].copy_from_slice(&(i64::from(i).unsigned_abs()).to_le_bytes());
             bytes
         })
         .collect();
@@ -103,7 +103,7 @@ fn bench_proof_verification(c: &mut Criterion) {
                 SetMembershipProver::verify_proof(&vk, &params, &zkp_proof, &public_inputs)
                     .unwrap(),
             );
-        })
+        });
     });
 }
 
@@ -114,7 +114,7 @@ fn bench_merkle_tree_construction(c: &mut Criterion) {
         let leaves: Vec<[u8; 32]> = (0..*leaf_count)
             .map(|i| {
                 let mut bytes = [0u8; 32];
-                bytes[0..8].copy_from_slice(&((i as i64).unsigned_abs()).to_le_bytes());
+                bytes[0..8].copy_from_slice(&(i64::from(i).unsigned_abs()).to_le_bytes());
                 bytes
             })
             .collect();
@@ -136,7 +136,7 @@ fn bench_merkle_proof_generation(c: &mut Criterion) {
         let leaves: Vec<[u8; 32]> = (0..*leaf_count)
             .map(|i| {
                 let mut bytes = [0u8; 32];
-                bytes[0..8].copy_from_slice(&((i as i64).unsigned_abs()).to_le_bytes());
+                bytes[0..8].copy_from_slice(&(i64::from(i).unsigned_abs()).to_le_bytes());
                 bytes
             })
             .collect();
@@ -160,7 +160,7 @@ fn bench_poseidon_hash(c: &mut Criterion) {
                 black_box(pallas::Base::from(42)),
                 black_box(pallas::Base::from(99)),
             ));
-        })
+        });
     });
 }
 

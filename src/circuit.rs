@@ -375,11 +375,6 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
             return Err(Error::Synthesis);
         }
 
-        let expected_nullifier = crate::utils::poseidon_hash(self.leaf, self.root);
-        if self.nullifier != expected_nullifier {
-            return Err(Error::Synthesis);
-        }
-
         let (leaf_cell, root_cell, nullifier_cell) = layouter.assign_region(
             || "assign input values",
             |mut region| {
