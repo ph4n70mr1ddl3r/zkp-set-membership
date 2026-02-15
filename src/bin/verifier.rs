@@ -55,7 +55,7 @@ fn bytes_to_fixed_array(bytes: &[u8], name: &str) -> Result<[u8; HASH_SIZE]> {
 fn check_and_add_nullifier(nullifier_file: &Path, nullifier: &str) -> Result<()> {
     let normalized_nullifier = nullifier.trim().to_lowercase();
 
-    let file = OpenOptions::new()
+    let mut file = OpenOptions::new()
         .read(true)
         .write(true)
         .create(true)
@@ -70,21 +70,22 @@ fn check_and_add_nullifier(nullifier_file: &Path, nullifier: &str) -> Result<()>
 
     if let Err(e) = fs2::FileExt::try_lock_exclusive(&file) {
         return Err(anyhow::anyhow!(
-            "Could not acquire lock on nullifier file: {}. Another verifier process is running. Please wait and retry. Error: {}",
+            "Could not acquire exclusive lock on nullifier file: {}. This may indicate:\n\
+             - Another verifier process is currently running\n\
+             - A previous verifier process crashed without releasing the lock\n\
+             - File system permission issues\n\
+             Error details: {}. Please wait a moment and retry, or manually check if another process is holding the lock.",
             nullifier_file.display(),
             e
         ));
     }
 
-    let existing_content = fs::read_to_string(nullifier_file).with_context(|| {
-        format!(
-            "Failed to read nullifier file: {}. Check file permissions and ensure the file is not corrupted.",
-            nullifier_file.display()
-        )
-    })?;
+    use std::io::{BufRead, BufReader, Seek, SeekFrom, Write};
 
-    let existing_nullifiers: std::collections::HashSet<String> = existing_content
+    let mut reader = BufReader::new(&file);
+    let existing_nullifiers: std::collections::HashSet<String> = reader
         .lines()
+        .filter_map(|line| line.ok())
         .map(|line| line.trim().to_lowercase())
         .collect();
 
@@ -97,15 +98,12 @@ fn check_and_add_nullifier(nullifier_file: &Path, nullifier: &str) -> Result<()>
         ));
     }
 
-    let mut file = OpenOptions::new()
-        .append(true)
-        .open(nullifier_file)
-        .with_context(|| {
-            format!(
-                "Failed to open nullifier file for writing: {}. Check file permissions and disk space.",
-                nullifier_file.display()
-            )
-        })?;
+    file.seek(SeekFrom::End(0)).with_context(|| {
+        format!(
+            "Failed to seek to end of nullifier file: {}",
+            nullifier_file.display()
+        )
+    })?;
 
     if !existing_nullifiers.is_empty() {
         writeln!(file).context("Failed to write newline to nullifier file")?;

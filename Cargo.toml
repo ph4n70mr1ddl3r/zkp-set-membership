@@ -8,6 +8,14 @@ repository = "https://github.com/example/zkp-set-membership"
 keywords = ["zero-knowledge", "cryptography", "ethereum", "merkle-tree", "halo2"]
 categories = ["cryptography", "authentication"]
 
+[workspace.lints.clippy]
+all = "warn"
+pedantic = "warn"
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"
+
 [[bin]]
 name = "prover"
 path = "src/bin/prover.rs"

@@ -90,8 +90,12 @@ pub fn normalize_addresses_batch(addresses: &[String]) -> Result<Vec<String>> {
 /// An address is considered valid if:
 /// - It is exactly 42 characters (including 0x prefix)
 /// - It starts with "0x"
-/// - All remaining characters are valid hex digits
-/// - It is not the zero address (all zeros)
+/// - All remaining characters are valid hex digits (0-9, a-f, A-F)
+/// - It is not the zero address (0x0000...0000) - the Ethereum burn address
+///
+/// The zero address (0x0000000000000000000000000000000000000000) is considered
+/// invalid because it's a special Ethereum address where all funds sent to it
+/// are permanently burned and cannot be recovered.
 ///
 /// # Arguments
 ///

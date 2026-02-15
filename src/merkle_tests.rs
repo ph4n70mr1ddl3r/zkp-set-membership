@@ -180,4 +180,60 @@ mod tests {
 
         assert!(!tree.verify_proof(&wrong_proof));
     }
+
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn test_merkle_tree_empty_leaves() {
+        let leaves: Vec<[u8; 32]> = vec![];
+        let result = MerkleTree::new(leaves);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Empty"));
+    }
+
+    #[test]
+    #[allow(clippy::unwrap_used, clippy::cast_possible_truncation)]
+    fn test_merkle_tree_exceeds_capacity() {
+        let max_leaves = 1 << crate::CIRCUIT_K;
+        let mut leaves = Vec::with_capacity(max_leaves + 1);
+
+        for i in 0..=max_leaves {
+            let mut leaf = [0u8; 32];
+            leaf[0..4].copy_from_slice(&(i as u32).to_be_bytes());
+            leaves.push(leaf);
+        }
+
+        let result = MerkleTree::new(leaves);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("exceeds maximum"));
+    }
+
+    #[test]
+    #[allow(clippy::unwrap_used, clippy::cast_possible_truncation)]
+    fn test_merkle_tree_at_capacity() {
+        let max_leaves = 1 << crate::CIRCUIT_K;
+        let mut leaves = Vec::with_capacity(max_leaves);
+
+        for i in 0..max_leaves {
+            let mut leaf = [0u8; 32];
+            leaf[0..4].copy_from_slice(&(i as u32).to_be_bytes());
+            leaves.push(leaf);
+        }
+
+        let tree = MerkleTree::new(leaves);
+        assert!(tree.is_ok());
+    }
+
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn test_merkle_proof_with_invalid_index_out_of_bounds() {
+        let leaves = vec![[1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32]];
+        let leaves_len = leaves.len();
+        let tree = MerkleTree::new(leaves).unwrap();
+
+        let proof = tree.generate_proof(leaves_len);
+        assert!(proof.is_none());
+
+        let proof = tree.generate_proof(leaves_len + 100);
+        assert!(proof.is_none());
+    }
 }
