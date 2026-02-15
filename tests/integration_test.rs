@@ -363,3 +363,88 @@ fn test_concurrent_prover_calls() {
     assert!(proof_file1.exists());
     assert!(proof_file2.exists());
 }
+
+#[test]
+fn test_concurrent_verifier_nullifier_tracking() {
+    let temp_dir = TempDir::new().expect("Failed to create temp dir");
+    let accounts_file = temp_dir.path().join("accounts.txt");
+    let proof_file = temp_dir.path().join("proof.json");
+
+    let wallet1 = LocalWallet::new(&mut rand::thread_rng());
+    let wallet2 = LocalWallet::new(&mut rand::thread_rng());
+    let wallet3 = LocalWallet::new(&mut rand::thread_rng());
+
+    let addresses = [
+        format!("{:x}", wallet1.address()),
+        format!("{:x}", wallet2.address()),
+        format!("{:x}", wallet3.address()),
+    ];
+
+    let accounts_content = addresses.join("\n");
+    fs::write(&accounts_file, accounts_content).expect("Failed to write accounts file");
+
+    let private_key_hex = format!("{:x}", wallet1.signer().to_bytes());
+
+    let prover_path = PathBuf::from("./target/release/prover");
+    let verifier_path = PathBuf::from("./target/release/verifier");
+
+    if !prover_path.exists() || !verifier_path.exists() {
+        eprintln!("Skipping integration test: release binaries not found");
+        return;
+    }
+
+    let prover_output = std::process::Command::new(&prover_path)
+        .arg("--accounts-file")
+        .arg(&accounts_file)
+        .arg("--output")
+        .arg(&proof_file)
+        .env("ZKP_PRIVATE_KEY", &private_key_hex)
+        .output()
+        .expect("Failed to execute prover");
+
+    assert!(
+        prover_output.status.success(),
+        "Prover failed: {}",
+        String::from_utf8_lossy(&prover_output.stderr)
+    );
+
+    let handles: Vec<_> = (0..5)
+        .map(|_| {
+            let verifier_path = verifier_path.clone();
+            let proof_file = proof_file.clone();
+            thread::spawn(move || {
+                std::process::Command::new(&verifier_path)
+                    .arg("--proof-file")
+                    .arg(&proof_file)
+                    .output()
+                    .expect("Failed to execute verifier")
+            })
+        })
+        .collect();
+
+    let results: Vec<_> = handles
+        .into_iter()
+        .map(|h| h.join().expect("Thread panicked"))
+        .collect();
+
+    let success_count = results.iter().filter(|r| r.status.success()).count();
+    assert_eq!(
+        success_count, 1,
+        "Only first verification should succeed, got {} successes",
+        success_count
+    );
+
+    let duplicate_errors = results
+        .iter()
+        .filter(|r| !r.status.success())
+        .filter(|r| {
+            let stderr = String::from_utf8_lossy(&r.stderr);
+            stderr.contains("replay") || stderr.contains("nullifier")
+        })
+        .count();
+    assert_eq!(
+        duplicate_errors, 4,
+        "Remaining verifications should fail with nullifier error, got {}",
+        duplicate_errors
+    );
+}

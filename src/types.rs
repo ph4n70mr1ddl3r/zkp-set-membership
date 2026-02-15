@@ -64,11 +64,6 @@ pub struct ZKProofOutput {
     /// This is the root of the Merkle tree. It is the same value as
     /// `public_inputs.root` - both can be used interchangeably.
     pub merkle_root: String,
-    /// Deterministic nullifier hash as hex string (H(leaf || root)).
-    ///
-    /// Used for replay attack prevention. The same nullifier is also stored
-    /// in `public_inputs.nullifier`.
-    pub nullifier: String,
     /// Raw ZK-SNARK proof bytes
     pub zkp_proof: Vec<u8>,
     /// Public inputs containing the verification commitments.
@@ -94,15 +89,15 @@ impl ZKProofOutput {
         std::env::var("ZKP_TIMESTAMP_TOLERANCE_SECS")
             .ok()
             .and_then(|s| {
-                let parsed = s.parse::<u64>();
-                if parsed.is_err() {
-                    log::warn!(
-                        "Invalid ZKP_TIMESTAMP_TOLERANCE_SECS value '{}', using default {}",
-                        s,
-                        Self::DEFAULT_TIMESTAMP_TOLERANCE_SECS
-                    );
-                }
-                parsed.ok()
+                s.parse::<u64>()
+                    .inspect_err(|_| {
+                        log::warn!(
+                            "Invalid ZKP_TIMESTAMP_TOLERANCE_SECS value '{}', must be a positive integer. Using default {} seconds.",
+                            s,
+                            Self::DEFAULT_TIMESTAMP_TOLERANCE_SECS
+                        );
+                    })
+                    .ok()
             })
             .unwrap_or(Self::DEFAULT_TIMESTAMP_TOLERANCE_SECS)
     }
@@ -111,15 +106,15 @@ impl ZKProofOutput {
         std::env::var("ZKP_TIMESTAMP_MAX_AGE_SECS")
             .ok()
             .and_then(|s| {
-                let parsed = s.parse::<u64>();
-                if parsed.is_err() {
-                    log::warn!(
-                        "Invalid ZKP_TIMESTAMP_MAX_AGE_SECS value '{}', using default {}",
-                        s,
-                        Self::DEFAULT_TIMESTAMP_MAX_AGE_SECS
-                    );
-                }
-                parsed.ok()
+                s.parse::<u64>()
+                    .inspect_err(|_| {
+                        log::warn!(
+                            "Invalid ZKP_TIMESTAMP_MAX_AGE_SECS value '{}', must be a positive integer. Using default {} seconds.",
+                            s,
+                            Self::DEFAULT_TIMESTAMP_MAX_AGE_SECS
+                        )
+                    })
+                    .ok()
             })
             .unwrap_or(Self::DEFAULT_TIMESTAMP_MAX_AGE_SECS)
     }
@@ -143,7 +138,7 @@ impl ZKProofOutput {
     pub fn validate(&self) -> Result<()> {
         debug!("Starting proof output validation");
         debug!("Merkle root length: {}", self.merkle_root.len());
-        debug!("Nullifier length: {}", self.nullifier.len());
+        debug!("Nullifier length: {}", self.public_inputs.nullifier.len());
         debug!("ZK proof size: {} bytes", self.zkp_proof.len());
         debug!("Leaf index: {}", self.leaf_index);
         debug!("Timestamp: {}", self.timestamp);
@@ -153,7 +148,7 @@ impl ZKProofOutput {
                 "Merkle root cannot be empty. Expected a {HASH_SIZE}-byte hex string."
             ));
         }
-        if self.nullifier.is_empty() {
+        if self.public_inputs.nullifier.is_empty() {
             return Err(anyhow::anyhow!(
                 "Nullifier cannot be empty. Expected a {HASH_SIZE}-byte hex string."
             ));
@@ -225,11 +220,11 @@ impl ZKProofOutput {
         // Verify nullifier matches expected value
         let expected_nullifier = compute_nullifier(&leaf_bytes, &root_bytes)
             .context("Failed to compute expected nullifier")?;
-        if self.nullifier != hex::encode(expected_nullifier) {
+        if self.public_inputs.nullifier != hex::encode(expected_nullifier) {
             return Err(anyhow::anyhow!(
                 "Nullifier mismatch: expected {}, got {}. The nullifier must equal H(leaf || root). This indicates corrupted or tampered proof data.",
                 hex::encode(expected_nullifier),
-                self.nullifier
+                self.public_inputs.nullifier
             ));
         }
 

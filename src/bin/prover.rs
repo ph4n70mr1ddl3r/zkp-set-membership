@@ -16,8 +16,8 @@ use zkp_set_membership::{
         validate_private_key,
     },
     merkle::MerkleTree,
-    types::{compute_nullifier, compute_nullifier_from_fields, PublicInputs, ZKProofOutput},
-    utils::bytes_to_field,
+    types::{compute_nullifier_from_fields, PublicInputs, ZKProofOutput},
+    utils::{bytes_to_field, field_to_bytes},
     CIRCUIT_K,
 };
 
@@ -180,13 +180,6 @@ fn main() -> Result<()> {
     let leaf_hash = merkle_proof.leaf;
     let root_hash = merkle_proof.root;
 
-    info!("Computing deterministic nullifier");
-    println!("Computing deterministic nullifier...");
-    let nullifier =
-        compute_nullifier(&leaf_hash, &root_hash).context("Failed to compute nullifier")?;
-    println!("Nullifier: {}", hex::encode(nullifier));
-    debug!("Nullifier: {}", hex::encode(nullifier));
-
     info!("Creating ZK-SNARK circuit");
     println!("Creating ZK-SNARK circuit...");
 
@@ -196,6 +189,12 @@ fn main() -> Result<()> {
 
     // Compute nullifier directly from field elements to ensure consistency
     let nullifier_base = compute_nullifier_from_fields(leaf_base, root_base);
+    let nullifier = field_to_bytes(nullifier_base);
+
+    info!("Computing deterministic nullifier");
+    println!("Computing deterministic nullifier...");
+    println!("Nullifier: {}", hex::encode(nullifier));
+    debug!("Nullifier: {}", hex::encode(nullifier));
 
     let circuit = SetMembershipCircuit {
         leaf: leaf_base,
@@ -243,7 +242,6 @@ fn main() -> Result<()> {
 
     let output = ZKProofOutput {
         merkle_root: hex::encode(merkle_tree.root),
-        nullifier: hex::encode(nullifier),
         zkp_proof,
         public_inputs,
         leaf_index,
@@ -280,7 +278,7 @@ fn main() -> Result<()> {
 
     println!("Proof successfully generated and saved!");
     println!("Merkle Root: {}", output.merkle_root);
-    println!("Nullifier: {}", output.nullifier);
+    println!("Nullifier: {}", output.public_inputs.nullifier);
 
     Ok(())
 }

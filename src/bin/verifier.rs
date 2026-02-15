@@ -157,13 +157,13 @@ fn main() -> Result<()> {
 
     println!("Proof details:");
     println!("  Merkle Root: {}", proof.merkle_root);
-    println!("  Nullifier: {}", proof.nullifier);
+    println!("  Nullifier: {}", proof.public_inputs.nullifier);
     println!("  Leaf Index: {}", proof.leaf_index);
     println!("  Timestamp: {}", proof.timestamp);
     println!("  ZK Proof Size: {} bytes", proof.zkp_proof.len());
     debug!(
         "Proof details: merkle_root={}, nullifier={}, leaf_index={}, timestamp={}",
-        proof.merkle_root, proof.nullifier, proof.leaf_index, proof.timestamp
+        proof.merkle_root, proof.public_inputs.nullifier, proof.leaf_index, proof.timestamp
     );
 
     if proof.zkp_proof.len() > get_max_zk_proof_size() {
@@ -240,16 +240,21 @@ fn main() -> Result<()> {
             println!("\n✓ Proof verification PASSED!");
             println!("The prover has demonstrated knowledge of a private key");
             println!("corresponding to an Ethereum address in set.");
-            println!("\nDeterministic nullifier: {}", proof.nullifier);
+            println!(
+                "\nDeterministic nullifier: {}",
+                proof.public_inputs.nullifier
+            );
             println!("This nullifier can be used to prevent double-spending or");
             println!("reuse of same proof while maintaining privacy.");
 
-            check_and_add_nullifier(&nullifier_path, &proof.nullifier).with_context(|| {
-                format!(
-                    "Failed to record nullifier to: {}",
-                    nullifier_path.display()
-                )
-            })?;
+            check_and_add_nullifier(&nullifier_path, &proof.public_inputs.nullifier).with_context(
+                || {
+                    format!(
+                        "Failed to record nullifier to: {}",
+                        nullifier_path.display()
+                    )
+                },
+            )?;
             info!("Nullifier recorded to: {}", nullifier_path.display());
             println!("\nNullifier recorded to: {}", nullifier_path.display());
             Ok(())

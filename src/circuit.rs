@@ -358,6 +358,7 @@ impl Circuit<pallas::Base> for SetMembershipCircuit {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     fn synthesize(
         &self,
         config: Self::Config,
@@ -540,11 +541,17 @@ impl SetMembershipProver {
     /// This function uses a global static cache (`OnceLock`) to store the keys,
     /// so subsequent calls will return the cached keys instead of regenerating them.
     ///
+    /// # Thread Safety
+    ///
+    /// This function is thread-safe and will only generate keys once, even if
+    /// called concurrently from multiple threads.
+    ///
     /// # Panics
     ///
-    /// Panics if the cached keys cannot be retrieved (this should never happen
-    /// in practice as it's protected by a check, but the compiler sees a potential
-    /// panic in the `unwrap()` call when retrieving cached keys).
+    /// In the rare case where a race condition occurs and keys are already set
+    /// by another thread, this function will call `unwrap()` on the `OnceLock::get()`
+    /// result. In practice this should never panic because we've just verified
+    /// that `set()` failed, which means keys are present.
     ///
     /// # Errors
     ///

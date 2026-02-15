@@ -8,6 +8,24 @@ use crate::types::HASH_SIZE;
 use crate::utils::{bytes_to_field, field_to_bytes, poseidon_hash};
 use std::fmt;
 
+/// Performs constant-time comparison of two 32-byte arrays.
+///
+/// This function uses constant-time comparison to prevent timing attacks
+/// that could leak information about hash values during proof verification.
+///
+/// # Security
+///
+/// The comparison always iterates through all bytes regardless of differences,
+/// preventing an attacker from learning partial information through timing analysis.
+///
+/// # Arguments
+///
+/// * `a` - First byte array to compare
+/// * `b` - Second byte array to compare
+///
+/// # Returns
+///
+/// `true` if the arrays are equal, `false` otherwise
 #[inline]
 fn constant_time_eq(a: &[u8; HASH_SIZE], b: &[u8; HASH_SIZE]) -> bool {
     let mut result = 0u8;
@@ -83,6 +101,16 @@ pub struct MerkleTree {
     pub leaves: Vec<[u8; HASH_SIZE]>,
 }
 
+/// Computes Poseidon hash of two 32-byte values.
+///
+/// # Arguments
+///
+/// * `left` - Left input value (32 bytes)
+/// * `right` - Right input value (32 bytes)
+///
+/// # Returns
+///
+/// 32-byte hash result
 #[inline]
 fn hash_pair(left: &[u8; HASH_SIZE], right: &[u8; HASH_SIZE]) -> [u8; HASH_SIZE] {
     let left_field = bytes_to_field(left);
@@ -91,6 +119,19 @@ fn hash_pair(left: &[u8; HASH_SIZE], right: &[u8; HASH_SIZE]) -> [u8; HASH_SIZE]
     field_to_bytes(hash_field)
 }
 
+/// Computes the next level of the Merkle tree from the current level.
+///
+/// Hashes pairs of adjacent values to compute the parent level.
+/// If the level has an odd number of elements, the last element is
+/// propagated up without hashing.
+///
+/// # Arguments
+///
+/// * `level` - Current level of the Merkle tree
+///
+/// # Returns
+///
+/// Next level of the tree with half (or roughly half) the elements
 #[inline]
 fn compute_next_level(level: &[[u8; HASH_SIZE]]) -> Vec<[u8; HASH_SIZE]> {
     let chunk_count = level.len() / 2 + (level.len() % 2);
@@ -193,7 +234,8 @@ impl MerkleTree {
 
         let max_depth = self.leaves.len().next_power_of_two().ilog2() as usize;
         let mut siblings = Vec::with_capacity(max_depth);
-        let mut level = self.leaves.clone();
+        let mut level: Vec<[u8; HASH_SIZE]> = Vec::with_capacity(self.leaves.len());
+        level.extend_from_slice(&self.leaves);
         let mut index = leaf_index;
 
         while level.len() > 1 {
@@ -230,6 +272,11 @@ impl MerkleTree {
     /// This only verifies the cryptographic correctness of the proof.
     /// It does not verify that the `leaf_index` is valid for this tree.
     ///
+    /// # Security
+    /// This function uses constant-time comparison and completes all operations
+    /// before returning to prevent timing attacks that could leak information
+    /// about which leaf is being verified.
+    ///
     /// # Examples
     ///
     /// ```
@@ -243,20 +290,16 @@ impl MerkleTree {
     /// ```
     #[must_use]
     pub fn verify_proof(&self, proof: &MerkleProof) -> bool {
-        if !constant_time_eq(&proof.root, &self.root) {
-            return false;
-        }
+        let mut valid = 1u8;
 
-        if proof.index >= self.leaves.len() {
-            return false;
-        }
+        valid &= u8::from(constant_time_eq(&proof.root, &self.root));
 
-        if !constant_time_eq(
+        valid &= u8::from(proof.index < self.leaves.len());
+
+        valid &= u8::from(constant_time_eq(
             &proof.leaf,
             &self.leaves.get(proof.index).copied().unwrap_or([0u8; 32]),
-        ) {
-            return false;
-        }
+        ));
 
         let mut current_hash = proof.leaf;
         let mut index = proof.index;
@@ -270,7 +313,9 @@ impl MerkleTree {
             index /= 2;
         }
 
-        constant_time_eq(&current_hash, &self.root)
+        valid &= u8::from(constant_time_eq(&current_hash, &self.root));
+
+        valid != 0
     }
 }
 

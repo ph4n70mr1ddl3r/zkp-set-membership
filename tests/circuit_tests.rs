@@ -278,3 +278,79 @@ fn test_leaf_index_builder_validation() {
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("leaf_index"));
 }
+
+#[test]
+fn test_circuit_with_invalid_nullifier() {
+    let leaf_bytes = [42u8; 32];
+    let leaf = bytes_to_field(&leaf_bytes);
+    let root = leaf;
+
+    let wrong_nullifier = pallas::Base::from(999);
+
+    let circuit = SetMembershipCircuit {
+        leaf,
+        root,
+        nullifier: wrong_nullifier,
+        siblings: vec![],
+        leaf_index: 0,
+    };
+
+    let params: Params<_> = Params::<vesta::Affine>::new(CIRCUIT_K);
+    let (vk, pk) = SetMembershipProver::generate_and_cache_keys(&params).unwrap();
+
+    let public_inputs = vec![leaf, root, wrong_nullifier];
+
+    let proof = SetMembershipProver::generate_proof(&pk, &params, circuit.clone(), &public_inputs);
+    assert!(
+        proof.is_ok(),
+        "Proof generation should succeed even with wrong nullifier"
+    );
+
+    let result = SetMembershipProver::verify_proof(&vk, &params, &proof.unwrap(), &public_inputs);
+    assert!(result.is_ok());
+    assert!(
+        !result.unwrap(),
+        "Proof with wrong nullifier must not verify"
+    );
+}
+
+#[test]
+fn test_circuit_with_missing_required_fields() {
+    let leaf_bytes = [42u8; 32];
+    let leaf = bytes_to_field(&leaf_bytes);
+
+    let result = SetMembershipCircuit::builder().leaf(leaf).build();
+    assert!(result.is_err());
+    let error_msg = result.unwrap_err().to_string();
+    assert!(error_msg.contains("root"));
+    assert!(error_msg.contains("required"));
+}
+
+#[test]
+fn test_circuit_nullifier_mismatch_error_message() {
+    let leaf_bytes = [42u8; 32];
+    let sibling_bytes = [43u8; 32];
+
+    let leaf = bytes_to_field(&leaf_bytes);
+    let sibling = bytes_to_field(&sibling_bytes);
+
+    let root = poseidon_hash(leaf, sibling);
+    let wrong_nullifier = pallas::Base::from(12345);
+
+    let circuit = SetMembershipCircuit {
+        leaf,
+        root,
+        nullifier: wrong_nullifier,
+        siblings: vec![sibling],
+        leaf_index: 0,
+    };
+
+    let result = circuit.validate_consistency_err();
+    assert!(result.is_err());
+    let error_msg = result.unwrap_err().to_string();
+    assert!(
+        error_msg.contains("Nullifier mismatch"),
+        "Error should mention nullifier mismatch: {}",
+        error_msg
+    );
+}
