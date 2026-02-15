@@ -134,6 +134,13 @@ fn get_nullifier_path(proof_path: &Path) -> PathBuf {
 fn check_and_add_nullifier(nullifier_file: &Path, nullifier: &str) -> Result<()> {
     let normalized_nullifier = nullifier.trim().to_lowercase();
 
+    if normalized_nullifier.is_empty() {
+        return Err(anyhow::anyhow!(
+            "Nullifier is empty. Cannot record invalid nullifier to file: {}",
+            nullifier_file.display()
+        ));
+    }
+
     let mut file = OpenOptions::new()
         .read(true)
         .write(true)

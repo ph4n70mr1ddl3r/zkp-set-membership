@@ -41,21 +41,27 @@ fn main() -> anyhow::Result<()> {
     let output_file = args.output_file;
 
     if count == 0 {
-        return Err(anyhow!("Count must be greater than 0"));
+        return Err(anyhow!("Count must be greater than 0, got {count}"));
     }
     if count > 1_000_000 {
-        return Err(anyhow!("Count must be less than 1,000,000 (got {count})"));
+        return Err(anyhow!(
+            "Count must be less than 1,000,000 (got {count}) to prevent excessive resource usage"
+        ));
     }
 
     println!("Generating {count} random Ethereum addresses...");
     let addresses = generate_random_ethereum_addresses(count);
 
     if !validate_addresses(&addresses) {
-        return Err(anyhow!("Generated invalid addresses"));
+        return Err(anyhow!(
+            "Generated invalid addresses. This should not happen."
+        ));
     }
 
     if !check_duplicates(&addresses) {
-        return Err(anyhow!("Generated duplicate addresses"));
+        return Err(anyhow!(
+            "Generated duplicate addresses. This should not happen."
+        ));
     }
 
     println!("Writing addresses to {}...", output_file.display());

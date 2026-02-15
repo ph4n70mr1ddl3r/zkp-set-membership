@@ -546,6 +546,13 @@ impl SetMembershipProver {
     /// This function is thread-safe and will only generate keys once, even if
     /// called concurrently from multiple threads.
     ///
+    /// # Performance
+    ///
+    /// Key generation is computationally expensive (can take several seconds).
+    /// The caching mechanism ensures this only happens once per program lifetime.
+    /// Cached keys are shared via `Arc` clones, which is a cheap atomic reference
+    /// increment operation.
+    ///
     /// # Panics
     ///
     /// In the rare case where a race condition occurs and keys are already set
@@ -558,6 +565,17 @@ impl SetMembershipProver {
     /// Returns an error if key generation fails due to:
     /// - Invalid circuit parameters
     /// - Synthesis errors during key creation
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use halo2_proofs::poly::commitment::Params;
+    /// use pasta_curves::vesta;
+    /// use zkp_set_membership::circuit::SetMembershipProver;
+    ///
+    /// let params = Params::<vesta::Affine>::new(12);
+    /// let (vk, pk) = SetMembershipProver::generate_and_cache_keys(&params).unwrap();
+    /// ```
     pub fn generate_and_cache_keys(params: &Params<vesta::Affine>) -> Result<CachedKeys, Error> {
         if let Some(keys) = CACHED_KEYS.get() {
             return Ok(keys.clone());
@@ -570,13 +588,13 @@ impl SetMembershipProver {
         let vk = Arc::new(vk);
         let pk = Arc::new(pk);
 
-        let keys = (vk, pk);
-        if CACHED_KEYS.set(keys.clone()).is_err() {
+        let keys = (vk.clone(), pk.clone());
+        if CACHED_KEYS.set(keys).is_err() {
             log::debug!("Keys were already set by another thread, using that instance");
             return Ok(CACHED_KEYS.get().unwrap().clone());
         }
 
-        Ok(keys)
+        Ok((vk, pk))
     }
 
     /// Check if keys have been generated and are available.

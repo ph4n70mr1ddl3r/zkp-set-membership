@@ -43,6 +43,11 @@ fn read_private_key() -> Result<String> {
     if let Ok(key) = std::env::var("ZKP_PRIVATE_KEY") {
         info!("Using private key from ZKP_PRIVATE_KEY environment variable");
         info!("Warning: Private key from environment variable may be stored in shell history");
+        if key.trim().is_empty() {
+            return Err(anyhow::anyhow!(
+                "ZKP_PRIVATE_KEY environment variable is set but empty. Please provide a valid private key."
+            ));
+        }
         Ok(key)
     } else {
         print!("Enter private key: ");
@@ -50,6 +55,11 @@ fn read_private_key() -> Result<String> {
             .flush()
             .context("Failed to flush stdout")?;
         let key = read_password().context("Failed to read private key from stdin")?;
+        if key.trim().is_empty() {
+            return Err(anyhow::anyhow!(
+                "Private key cannot be empty. Please provide a valid private key."
+            ));
+        }
         info!("Using private key from secure stdin");
         Ok(key)
     }
@@ -74,8 +84,14 @@ fn load_and_validate_addresses(path: &PathBuf) -> Result<Vec<String>> {
 
     let addresses: Vec<String> = accounts_content
         .lines()
-        .filter(|line| !line.trim().is_empty())
-        .map(|line| line.trim().to_string())
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        })
         .collect();
 
     if addresses.is_empty() {

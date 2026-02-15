@@ -277,6 +277,10 @@ impl MerkleTree {
     /// before returning to prevent timing attacks that could leak information
     /// about which leaf is being verified.
     ///
+    /// # Performance
+    /// Verification is O(log n) where n is the number of leaves, as it must
+    /// hash through each level of the Merkle tree from leaf to root.
+    ///
     /// # Examples
     ///
     /// ```

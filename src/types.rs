@@ -194,9 +194,10 @@ impl ZKProofOutput {
 
         if leaf_bytes.len() != HASH_SIZE {
             return Err(anyhow::anyhow!(
-                "Leaf must be exactly {} bytes, but got {} bytes. Please check the leaf value in the verification key.",
+                "Leaf must be exactly {} bytes, but got {} bytes. Got hex: '{}'. Please check the leaf value in the verification key.",
                 HASH_SIZE,
-                leaf_bytes.len()
+                leaf_bytes.len(),
+                leaf_hex
             ));
         }
 
@@ -211,9 +212,10 @@ impl ZKProofOutput {
 
         if root_bytes.len() != HASH_SIZE {
             return Err(anyhow::anyhow!(
-                "Root must be exactly {} bytes, but got {} bytes. Please check the Merkle root value.",
+                "Root must be exactly {} bytes, but got {} bytes. Got hex: '{}'. Please check the Merkle root value.",
                 HASH_SIZE,
-                root_bytes.len()
+                root_bytes.len(),
+                self.merkle_root
             ));
         }
 
