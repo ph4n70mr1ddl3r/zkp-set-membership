@@ -30,12 +30,35 @@ const _: () = {
 ///
 /// Contains the leaf value, root hash, sibling hashes, and leaf index needed
 /// to verify that a specific leaf is included in the Merkle tree.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Eq)]
 pub struct MerkleProof {
     pub leaf: [u8; HASH_SIZE],
     pub root: [u8; HASH_SIZE],
     pub siblings: Vec<[u8; HASH_SIZE]>,
     pub index: usize,
+}
+
+impl PartialEq for MerkleProof {
+    fn eq(&self, other: &Self) -> bool {
+        if self.index != other.index {
+            return false;
+        }
+        if self.siblings.len() != other.siblings.len() {
+            return false;
+        }
+        if !constant_time_eq(&self.leaf, &other.leaf) {
+            return false;
+        }
+        if !constant_time_eq(&self.root, &other.root) {
+            return false;
+        }
+        for (a, b) in self.siblings.iter().zip(other.siblings.iter()) {
+            if !constant_time_eq(a, b) {
+                return false;
+            }
+        }
+        true
+    }
 }
 
 /// A binary Merkle tree using Poseidon hash for efficient in-circuit verification.

@@ -162,6 +162,12 @@ impl SetMembershipCircuit {
         self.nullifier == expected_nullifier
     }
 
+    /// Validates that the nullifier is consistent with the leaf and root.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the nullifier does not match the expected value
+    /// computed as `poseidon_hash(leaf, root)`.
     pub fn validate_consistency_err(&self) -> anyhow::Result<()> {
         use crate::utils::poseidon_hash;
         let expected_nullifier = poseidon_hash(self.leaf, self.root);
@@ -534,6 +540,22 @@ impl SetMembershipProver {
         Self
     }
 
+    /// Generates and caches proving and verifying keys for the circuit.
+    ///
+    /// This function uses a global static cache (`OnceLock`) to store the keys,
+    /// so subsequent calls will return the cached keys instead of regenerating them.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the cached keys cannot be retrieved (this should never happen
+    /// in practice as it's protected by a check, but the compiler sees a potential
+    /// panic in the `unwrap()` call when retrieving cached keys).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if key generation fails due to:
+    /// - Invalid circuit parameters
+    /// - Synthesis errors during key creation
     pub fn generate_and_cache_keys(params: &Params<vesta::Affine>) -> Result<CachedKeys, Error> {
         if let Some(keys) = CACHED_KEYS.get() {
             return Ok(keys.clone());

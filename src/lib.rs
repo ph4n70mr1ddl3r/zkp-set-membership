@@ -41,7 +41,7 @@
 //!
 //! ### Resource Limits
 //! - Implement rate limiting on proof generation to prevent resource exhaustion attacks
-//! - Validate input file sizes before processing to prevent DoS attacks
+//! - Validate input file sizes before processing to prevent `DoS` attacks
 //! - Monitor memory usage during proof operations
 //!
 //! ### Timestamp Validation

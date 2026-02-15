@@ -4,7 +4,7 @@ use halo2_proofs::poly::commitment::Params;
 use log::{debug, error, info};
 use pasta_curves::vesta;
 use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::io::{BufRead, BufReader, Seek, SeekFrom, Write};
 use std::path::Path;
 use zkp_set_membership::{
     circuit::SetMembershipProver,
@@ -80,14 +80,9 @@ fn check_and_add_nullifier(nullifier_file: &Path, nullifier: &str) -> Result<()>
         ));
     }
 
-    use std::io::{BufRead, BufReader, Seek, SeekFrom, Write};
-
-    let mut reader = BufReader::new(&file);
-    let existing_nullifiers: std::collections::HashSet<String> = reader
-        .lines()
-        .filter_map(|line| line.ok())
-        .map(|line| line.trim().to_lowercase())
-        .collect();
+    let reader = BufReader::new(&file);
+    let existing_nullifiers: std::collections::HashSet<String> =
+        reader.lines().map_while(Result::ok).collect();
 
     if existing_nullifiers.contains(&normalized_nullifier) {
         fs2::FileExt::unlock(&file)?;
