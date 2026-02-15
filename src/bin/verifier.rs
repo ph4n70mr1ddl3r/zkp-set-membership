@@ -110,17 +110,9 @@ fn prepare_public_inputs(proof: &ZKProofOutput) -> Result<Vec<pallas::Base>> {
     let root_base = bytes_to_field(&root_array);
     let nullifier_base = bytes_to_field(&nullifier_array);
 
-    proof
-        .merkle_siblings
-        .iter()
-        .map(|s| {
-            let _bytes = hex::decode(s).with_context(|| {
-                format!("Failed to decode merkle sibling hex '{s}': expected 32-byte hex string")
-            })?;
-            decode_hex_field(s, "Merkle sibling")
-        })
-        .collect::<Result<Vec<_>>>()
-        .context("Failed to validate merkle siblings from proof")?;
+    for s in &proof.merkle_siblings {
+        decode_hex_field(s, "Merkle sibling")?;
+    }
 
     Ok(vec![leaf_base, root_base, nullifier_base])
 }

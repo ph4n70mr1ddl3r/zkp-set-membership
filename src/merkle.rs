@@ -245,6 +245,8 @@ impl MerkleTree {
             if sibling_index < level.len() {
                 siblings.push(level[sibling_index]);
             } else if index.is_multiple_of(2) {
+                // For non-power-of-two trees, if the node is the last at its level (even index),
+                // it serves as its own sibling (propagates up without hashing)
                 siblings.push(level[index]);
             }
 

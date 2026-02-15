@@ -591,7 +591,10 @@ impl SetMembershipProver {
         let keys = (vk.clone(), pk.clone());
         if CACHED_KEYS.set(keys).is_err() {
             log::debug!("Keys were already set by another thread, using that instance");
-            return Ok(CACHED_KEYS.get().unwrap().clone());
+            return Ok(CACHED_KEYS
+                .get()
+                .expect("Keys must be set after set() failed")
+                .clone());
         }
 
         Ok((vk, pk))
