@@ -112,7 +112,7 @@ impl ZKProofOutput {
                             "Invalid ZKP_TIMESTAMP_MAX_AGE_SECS value '{}', must be a positive integer. Using default {} seconds.",
                             s,
                             Self::DEFAULT_TIMESTAMP_MAX_AGE_SECS
-                        )
+                        );
                     })
                     .ok()
             })

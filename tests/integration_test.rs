@@ -430,8 +430,7 @@ fn test_concurrent_verifier_nullifier_tracking() {
     let success_count = results.iter().filter(|r| r.status.success()).count();
     assert_eq!(
         success_count, 1,
-        "Only first verification should succeed, got {} successes",
-        success_count
+        "Only first verification should succeed, got {success_count} successes"
     );
 
     let duplicate_errors = results
@@ -444,7 +443,6 @@ fn test_concurrent_verifier_nullifier_tracking() {
         .count();
     assert_eq!(
         duplicate_errors, 4,
-        "Remaining verifications should fail with nullifier error, got {}",
-        duplicate_errors
+        "Remaining verifications should fail with nullifier error, got {duplicate_errors}"
     );
 }

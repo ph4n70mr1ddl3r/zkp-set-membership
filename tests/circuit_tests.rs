@@ -350,7 +350,6 @@ fn test_circuit_nullifier_mismatch_error_message() {
     let error_msg = result.unwrap_err().to_string();
     assert!(
         error_msg.contains("Nullifier mismatch"),
-        "Error should mention nullifier mismatch: {}",
-        error_msg
+        "Error should mention nullifier mismatch: {error_msg}"
     );
 }
