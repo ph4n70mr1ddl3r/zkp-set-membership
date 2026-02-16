@@ -82,7 +82,8 @@ pub struct ZKProofOutput {
 impl ZKProofOutput {
     // Acceptable clock drift in seconds to account for system clock skew
     const DEFAULT_TIMESTAMP_TOLERANCE_SECS: u64 = 30;
-    // Maximum proof age in seconds (24 hours) to prevent use of expired proofs
+    // Maximum proof age in seconds (24 hours = 86400 seconds).
+    // This prevents use of expired proofs and limits the window for replay attacks.
     const DEFAULT_TIMESTAMP_MAX_AGE_SECS: u64 = 86400;
 
     fn get_timestamp_tolerance() -> u64 {
