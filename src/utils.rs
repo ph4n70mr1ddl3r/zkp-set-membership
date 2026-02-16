@@ -93,7 +93,7 @@ pub fn validate_hex_string(input: &str) -> bool {
     is_valid_hex_string(stripped)
 }
 
-const BASE_U64: u64 = 256;
+const FIELD_BASE_U64: u64 = 256;
 
 /// Converts 32 bytes to a field element in the Pallas curve.
 ///
@@ -120,7 +120,7 @@ const BASE_U64: u64 = 256;
 #[must_use]
 pub fn bytes_to_field(bytes: &[u8; 32]) -> pallas::Base {
     let mut value = pallas::Base::zero();
-    let base = pallas::Base::from(BASE_U64);
+    let base = pallas::Base::from(FIELD_BASE_U64);
 
     for &byte in bytes {
         value = value * base + pallas::Base::from(u64::from(byte));
